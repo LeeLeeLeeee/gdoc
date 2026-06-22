@@ -100,20 +100,24 @@ export default function App() {
             <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
             <button className={view === 'graph' ? 'on' : ''} onClick={() => setView('graph')}>그래프</button>
           </div>
-          <div className="field">
-            <span className="ico"><Search /></span>
-            <input className="gd-input" style={{ height: 34 }} placeholder="이름으로 검색" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          {hasFilter && (
-            <div className="chips">
-              {q.trim() && (
-                <span className="chip">메타: {q.trim()} <button onClick={() => setQ('')}><X size={11} /></button></span>
+          {view !== 'graph' && (
+            <>
+              <div className="field">
+                <span className="ico"><Search /></span>
+                <input className="gd-input" style={{ height: 34 }} placeholder="이름으로 검색" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              {hasFilter && (
+                <div className="chips">
+                  {q.trim() && (
+                    <span className="chip">메타: {q.trim()} <button onClick={() => setQ('')}><X size={11} /></button></span>
+                  )}
+                  {name.trim() && (
+                    <span className="chip">이름: {name.trim()} <button onClick={() => setName('')}><X size={11} /></button></span>
+                  )}
+                  <span className="count">{visible.length}개 결과 · AND</span>
+                </div>
               )}
-              {name.trim() && (
-                <span className="chip">이름: {name.trim()} <button onClick={() => setName('')}><X size={11} /></button></span>
-              )}
-              <span className="count">{visible.length}개 결과 · AND</span>
-            </div>
+            </>
           )}
         </div>
 

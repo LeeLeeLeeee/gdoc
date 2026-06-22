@@ -95,7 +95,15 @@ export function GraphView({
 
   if (!session) return <div className="center muted" style={{ textAlign: 'center', padding: 24 }}>로그인하면 지식 그래프를 볼 수 있어요</div>;
   if (msg) return <div className="center muted" style={{ textAlign: 'center', padding: 24 }}>{msg}</div>;
-  if (!graph || !nodes.length) return <div className="center muted" style={{ padding: 24 }}>그래프 구성 중…</div>;
+  if (!graph || !nodes.length)
+    return (
+      <div className="pane-center">
+        <div className="empty">
+          <div className="spinner" />
+          <div className="sub">그래프 구성 중…</div>
+        </div>
+      </div>
+    );
 
   const clusters = [...new Set(graph.nodes.map((n) => n.cluster))];
   const color = (c: string) => PALETTE[Math.max(0, clusters.indexOf(c)) % PALETTE.length];
