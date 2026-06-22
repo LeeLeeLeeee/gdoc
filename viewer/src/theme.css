@@ -109,6 +109,17 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
 .tree { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 16px; }
 .tree::-webkit-scrollbar { width: 8px; }
 .tree::-webkit-scrollbar-thumb { background: var(--navy-500); border-radius: var(--radius-pill); }
+.tnode { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: var(--radius-sm);
+  font-size: 13.5px; color: var(--text-muted); cursor: pointer; }
+.tnode:hover { background: var(--surface-glass); }
+.tfolder { color: var(--text-default); font-weight: 600; }
+.tfile.sel { background: var(--brand-soft); color: var(--text-strong); font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
+.tname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* loading spinner */
+.spinner { width: 28px; height: 28px; margin: 0 auto 14px; border-radius: 50%;
+  border: 3px solid var(--surface-glass-strong); border-top-color: var(--brand); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---- doc pane: unselected / states ---- */
 .pane-center { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 40px; }

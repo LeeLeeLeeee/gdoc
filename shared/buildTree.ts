@@ -26,7 +26,7 @@ type FolderNode = Extract<TreeNode, { kind: 'folder' }>;
  * the last segment are folders, the last is the file leaf. Pure + deterministic
  * (folders before files, each sorted alphabetically) so the viewer + tests agree.
  */
-export function buildTree(docs: DocSummary[]): TreeNode[] {
+export function buildTree(docs: DocSummary[], opts: { sort?: boolean } = {}): TreeNode[] {
   const roots: TreeNode[] = [];
 
   for (const doc of docs) {
@@ -53,7 +53,9 @@ export function buildTree(docs: DocSummary[]): TreeNode[] {
     children.push({ kind: 'file', name: fileName, path: doc.path, doc });
   }
 
-  return sortNodes(roots);
+  // Default: sort folders-before-files alphabetically. Pass { sort: false } to
+  // preserve insertion order (the viewer feeds a pre-sorted doc list).
+  return opts.sort === false ? roots : sortNodes(roots);
 }
 
 function sortNodes(nodes: TreeNode[]): TreeNode[] {

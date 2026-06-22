@@ -53,3 +53,12 @@ export const Down = ({ size = 12, color }: P) => (
 export const Check = ({ size = 13, color }: P) => (
   <svg {...s(size)} {...stroke(color)}><path d="M20 6 9 17l-5-5" /></svg>
 );
+export const Folder = ({ size = 15, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>
+);
+export const File = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M14 3v5h5" /><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg>
+);
+export const ChevronRight = ({ size = 12, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="m9 6 6 6-6 6" /></svg>
+);

@@ -115,7 +115,7 @@ export default function App() {
           ) : error ? (
             <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
           ) : visible.length ? (
-            <FileTree docs={visible} onSelect={setSelected} />
+            <FileTree docs={visible} selectedPath={selected?.path} onSelect={setSelected} />
           ) : (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>
               {hasFilter ? '필터와 일치하는 문서가 없습니다' : '문서 없음'}
@@ -150,6 +150,13 @@ export default function App() {
             </div>
             <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
           </>
+        ) : selected ? (
+          <div className="pane-center">
+            <div className="empty">
+              <div className="spinner" />
+              <div className="sub">문서 불러오는 중…</div>
+            </div>
+          </div>
         ) : (
           <div className="pane-center">
             <div className="pane-glow" />

@@ -1,55 +1,22 @@
-import { useEffect } from 'react';
-import {
-  FileTree as PierreFileTree,
-  useFileTree,
-  useFileTreeSelection,
-} from '@pierre/trees/react';
-import type { DocSummary } from '../../shared/buildTree';
+import { useMemo } from 'react';
+import { buildTree, type DocSummary } from '../../shared/buildTree';
+import { TreeView } from './TreeView';
 
-// Dark-theme overrides for @pierre/trees (renders in a shadow root; CSS custom
-// properties inherit through the boundary). Keeps the beta lib isolated here (D2).
-const TREE_THEME: React.CSSProperties = {
-  height: '100%',
-  background: 'transparent',
-  // documented @pierre/trees override hooks
-  ['--trees-fg-override' as string]: 'var(--text-default)',
-  ['--trees-selected-bg-override' as string]: 'var(--brand-soft)',
-  ['--trees-border-color-override' as string]: 'transparent',
-  ['--trees-theme-bg' as string]: 'transparent',
-  ['--trees-theme-fg' as string]: 'var(--text-default)',
-};
-
-/** Wrapper isolating @pierre/trees. `docs` arrives already filtered + sorted. */
+/**
+ * Custom folder tree styled to the Alloy design. Replaced @pierre/trees (whose
+ * own styling clashed with the design and didn't honor our sort). The D2 wrapper
+ * boundary made this swap a one-file change. `docs` arrives filtered + sorted;
+ * buildTree({ sort: false }) preserves that order so the sort control works.
+ */
 export function FileTree({
   docs,
+  selectedPath,
   onSelect,
 }: {
   docs: DocSummary[];
+  selectedPath?: string;
   onSelect: (doc: DocSummary) => void;
 }) {
-  const paths = docs.map((d) => d.path);
-  const pathKey = paths.join('\n');
-
-  const { model } = useFileTree({
-    paths,
-    search: false, // our own meta + name filters drive the doc set
-    initialExpansion: 'open',
-    flattenEmptyDirectories: true,
-  });
-
-  useEffect(() => {
-    model.resetPaths(paths);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, pathKey]);
-
-  const selected = useFileTreeSelection(model);
-  useEffect(() => {
-    const path = selected[0];
-    if (!path) return;
-    const doc = docs.find((d) => d.path === path);
-    if (doc) onSelect(doc);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
-
-  return <PierreFileTree model={model} style={TREE_THEME} />;
+  const tree = useMemo(() => buildTree(docs, { sort: false }), [docs]);
+  return <TreeView nodes={tree} selectedPath={selectedPath} onSelect={onSelect} />;
 }

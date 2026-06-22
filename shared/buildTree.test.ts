@@ -52,6 +52,13 @@ describe('buildTree', () => {
     ]);
   });
 
+  it('preserves insertion order when sort is false', () => {
+    const tree = buildTree([doc('a/zebra'), doc('a/apple')], { sort: false });
+    const folder = tree[0];
+    if (folder.kind !== 'folder') throw new Error('expected folder');
+    expect(folder.children.map((n) => n.name)).toEqual(['zebra', 'apple']);
+  });
+
   it('carries the doc summary on the file leaf', () => {
     const tree = buildTree([doc('a/b', { title: 'Hello', visibility: 'private' })]);
     const leaf = (tree[0] as any).children[0];
