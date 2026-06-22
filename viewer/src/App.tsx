@@ -93,14 +93,12 @@ export default function App() {
         <div className="doc-controls">
           <div className="row-between">
             <span className="eyebrow">{countLabel}</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div className="seg">
-                <button className={view === 'tree' ? 'on' : ''} onClick={() => setView('tree')}>트리</button>
-                <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
-                <button className={view === 'graph' ? 'on' : ''} onClick={() => setView('graph')}>그래프</button>
-              </div>
-              <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
-            </div>
+            <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
+          </div>
+          <div className="seg">
+            <button className={view === 'tree' ? 'on' : ''} onClick={() => setView('tree')}>트리</button>
+            <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
+            <button className={view === 'graph' ? 'on' : ''} onClick={() => setView('graph')}>그래프</button>
           </div>
           <div className="field">
             <span className="ico"><Search /></span>

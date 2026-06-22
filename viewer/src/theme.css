@@ -78,7 +78,8 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
 
 /* ---- eyebrow / doc header row ---- */
 .doc-controls { padding: 14px 14px 8px; display: flex; flex-direction: column; gap: 10px; }
-.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); white-space: nowrap; }
+.doc-controls .row-between > .eyebrow { flex: none; }
 .row-between { display: flex; align-items: center; justify-content: space-between; }
 
 /* ---- filter chips ---- */
