@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileTree } from './FileTree';
 import { CardView } from './CardView';
+import { GraphView } from './GraphView';
 import { useDocs } from './useDocs';
 import { useSession } from './auth';
 import { AuthBar } from './AuthBar';
@@ -19,7 +20,7 @@ export default function App() {
   const [name, setName] = useState(''); // name search
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [view, setView] = useState<'tree' | 'card'>('tree');
+  const [view, setView] = useState<'tree' | 'card' | 'graph'>('tree');
 
   const [selected, setSelected] = useState<DocSummary | null>(null);
   const [docHtml, setDocHtml] = useState<string | null>(null);
@@ -96,6 +97,7 @@ export default function App() {
               <div className="seg">
                 <button className={view === 'tree' ? 'on' : ''} onClick={() => setView('tree')}>트리</button>
                 <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
+                <button className={view === 'graph' ? 'on' : ''} onClick={() => setView('graph')}>그래프</button>
               </div>
               <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
             </div>
@@ -118,7 +120,9 @@ export default function App() {
         </div>
 
         <div className="tree">
-          {loading ? (
+          {view === 'graph' ? (
+            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>지식 그래프를<br />오른쪽에 표시 중</div>
+          ) : loading ? (
             <div className="center muted" style={{ padding: 24 }}>불러오는 중…</div>
           ) : error ? (
             <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
@@ -137,7 +141,9 @@ export default function App() {
       </aside>
 
       <main className="pane">
-        {selected && loadError ? (
+        {view === 'graph' ? (
+          <GraphView session={session} docs={docs} onSelect={(d) => { setSelected(d); setView('tree'); }} />
+        ) : selected && loadError ? (
           <div className="pane-center">
             <div className="empty">
               <div className="err-badge"><Alert size={28} /></div>

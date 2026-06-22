@@ -42,6 +42,12 @@ describe('gdocMetaSchema', () => {
   it('rejects an invalid visibility value', () => {
     expect(() => gdocMetaSchema.parse({ ...validMeta, visibility: 'secret' })).toThrow();
   });
+
+  it('accepts an optional uid (uuid) and rejects a non-uuid', () => {
+    const uid = '9114e558-42c1-4765-97ae-78c9388ed93e';
+    expect(gdocMetaSchema.parse({ ...validMeta, uid }).uid).toBe(uid);
+    expect(() => gdocMetaSchema.parse({ ...validMeta, uid: 'not-a-uuid' })).toThrow();
+  });
 });
 
 describe('resolvePath', () => {

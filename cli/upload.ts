@@ -31,6 +31,7 @@ export async function uploadDoc(html: string, ports: UploadPorts): Promise<Uploa
 
   await ports.db.upsert({
     id,
+    uid: meta.uid,
     type: meta.type,
     title: meta.title,
     tags: meta.tags,

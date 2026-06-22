@@ -13,6 +13,7 @@ export interface StoragePort {
 
 export interface DocumentRow {
   id: string;
+  uid?: string; // authored stable id; omitted → DB keeps/assigns one
   type: string;
   title: string;
   tags: string[];

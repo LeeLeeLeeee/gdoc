@@ -21,6 +21,9 @@ export const gdocAssetSchema = z.object({
 
 export const gdocMetaSchema = z.object({
   type: z.enum(DOC_TYPES),
+  // Stable node identity for the future knowledge graph. Authored by the generation
+  // skill once and preserved across re-uploads; if absent, the DB assigns one per path.
+  uid: z.string().uuid().optional(),
   title: z.string().min(1),
   tags: z.array(z.string()).default([]),
   category: z.string().min(1),

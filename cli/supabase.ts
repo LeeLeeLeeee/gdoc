@@ -33,6 +33,7 @@ export function createSupabasePorts(
     async upsert(row) {
       const { error } = await sb.from('documents').upsert({
         id: row.id,
+        ...(row.uid ? { uid: row.uid } : {}), // omit → DB preserves existing / assigns default
         type: row.type,
         title: row.title,
         tags: row.tags,
