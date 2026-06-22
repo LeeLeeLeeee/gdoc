@@ -24,8 +24,16 @@ export interface DocumentRow {
   project?: string;
   bucket: Bucket;
   storageKey: string;
+  contentHash: string;
+}
+
+export interface ExistingDoc {
+  id: string;
+  contentHash: string | null;
+  path: string;
 }
 
 export interface DbPort {
   upsert(row: DocumentRow): Promise<void>;
+  listExisting(): Promise<ExistingDoc[]>;
 }

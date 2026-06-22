@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { execFile } from 'node:child_process';
 import { buildGraph, graphSchema, type Graph } from '../shared/graph';
 import type { DocSummary } from '../shared/buildTree';
+import { runEngine, extractJson } from './llm';
 
 function client() {
   const url = process.env.SUPABASE_URL;
@@ -20,27 +20,6 @@ async function fetchDocs(sb: ReturnType<typeof client>): Promise<DocSummary[]> {
     visibility: r.visibility, bucket: r.bucket, storageKey: r.storage_key,
     tags: r.tags ?? [], category: r.category, createdAt: r.created_at, updatedAt: r.updated_at,
   }));
-}
-
-/** Run a local engine, returning stdout (or null if the binary is absent / fails). */
-function runEngine(engine: 'codex' | 'claude', prompt: string): Promise<string | null> {
-  const args = engine === 'codex' ? ['exec', prompt, '-s', 'read-only'] : ['-p', prompt];
-  return new Promise((resolve) => {
-    execFile(engine, args, { maxBuffer: 16 * 1024 * 1024, timeout: 120_000 }, (err, stdout) => {
-      resolve(err ? null : stdout);
-    });
-  });
-}
-
-function extractJson(s: string): unknown {
-  const i = s.indexOf('{');
-  const j = s.lastIndexOf('}');
-  if (i < 0 || j < 0) return null;
-  try {
-    return JSON.parse(s.slice(i, j + 1));
-  } catch {
-    return null;
-  }
 }
 
 /** Best-effort LLM enrichment (cluster names + semantic edges). Falls back to the deterministic graph. */

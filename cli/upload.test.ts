@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { uploadDoc } from './upload';
+import { uploadDoc, type UploadCtx } from './upload';
+import { contentHash } from './classify';
+import { slugFromPath } from '../shared/schema';
 import type { StoragePort, DbPort } from './ports';
 
 const html = (extra: Record<string, unknown> = {}) =>
@@ -11,6 +13,8 @@ const html = (extra: Record<string, unknown> = {}) =>
     path: 'Playground/Tech Notes/React Query',
     ...extra,
   })}</script></head><body>doc</body></html>`;
+
+const ID = slugFromPath('Playground/Tech Notes/React Query'); // playground/tech-notes/react-query
 
 function makeFakes() {
   const storage = {
@@ -26,54 +30,75 @@ function makeFakes() {
     async upsert(row: Record<string, unknown>) {
       this.rows.push(row);
     },
+    async listExisting() {
+      return [];
+    },
   } satisfies DbPort & { rows: Record<string, unknown>[] };
 
   return { storage, db };
 }
 
-describe('uploadDoc', () => {
-  it('uploads body then upserts a row keyed by slug(resolvePath)', async () => {
-    const { storage, db } = makeFakes();
-    const out = await uploadDoc(html(), { storage, db });
+const emptyCtx = (): UploadCtx => ({ byId: new Map(), byHash: new Map() });
 
-    expect(out).toEqual({
-      status: 'ok',
-      id: 'playground/tech-notes/react-query',
-      bucket: 'private',
-      key: 'playground/tech-notes/react-query.html',
-    });
+describe('uploadDoc', () => {
+  it('new doc → status new, uploads body then upserts a row keyed by slug(path) with hash', async () => {
+    const { storage, db } = makeFakes();
+    const out = await uploadDoc(html(), { storage, db }, emptyCtx());
+    expect(out).toMatchObject({ status: 'new', id: ID, bucket: 'private', key: `${ID}.html` });
     expect(db.rows).toHaveLength(1);
-    expect(db.rows[0]).toMatchObject({
-      id: 'playground/tech-notes/react-query',
-      visibility: 'private',
-      bucket: 'private',
-      path: 'Playground/Tech Notes/React Query',
-    });
+    expect(db.rows[0]).toMatchObject({ id: ID, visibility: 'private', path: 'Playground/Tech Notes/React Query' });
+    expect(db.rows[0].contentHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('routes public docs to the public bucket', async () => {
     const { storage, db } = makeFakes();
-    const out = await uploadDoc(html({ visibility: 'public' }), { storage, db });
-    expect(out.status).toBe('ok');
+    const out = await uploadDoc(html({ visibility: 'public' }), { storage, db }, emptyCtx());
+    expect(out.status).toBe('new');
     expect(storage.calls[0].bucket).toBe('public');
   });
 
-  it('skips a doc with no meta block without touching storage or db', async () => {
+  it('skips a doc with no meta block', async () => {
     const { storage, db } = makeFakes();
-    const out = await uploadDoc('<html><body>nope</body></html>', { storage, db });
+    const out = await uploadDoc('<html><body>nope</body></html>', { storage, db }, emptyCtx());
     expect(out).toEqual({ status: 'skip', reason: 'no-meta-block' });
     expect(storage.calls).toHaveLength(0);
     expect(db.rows).toHaveLength(0);
   });
 
-  it('does NOT write the db row if storage upload fails (storage-first order)', async () => {
-    const db = { rows: [] as Record<string, unknown>[], async upsert(r: Record<string, unknown>) { this.rows.push(r); } };
-    const storage: StoragePort = {
-      async upload() {
-        throw new Error('network down');
-      },
-    };
-    await expect(uploadDoc(html(), { storage, db })).rejects.toThrow('network down');
+  it('unchanged → same id+hash already present, skips storage and db', async () => {
+    const { storage, db } = makeFakes();
+    const hash = contentHash(html());
+    const ctx: UploadCtx = { byId: new Map([[ID, hash]]), byHash: new Map([[hash, ID]]) };
+    const out = await uploadDoc(html(), { storage, db }, ctx);
+    expect(out.status).toBe('unchanged');
+    expect(storage.calls).toHaveLength(0);
     expect(db.rows).toHaveLength(0);
+  });
+
+  it('duplicate → same hash under a different id, skips', async () => {
+    const { storage, db } = makeFakes();
+    const hash = contentHash(html());
+    const ctx: UploadCtx = { byId: new Map(), byHash: new Map([[hash, 'some/other-doc']]) };
+    const out = await uploadDoc(html(), { storage, db }, ctx);
+    expect(out.status).toBe('duplicate');
+    expect(storage.calls).toHaveLength(0);
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it('does NOT write the db row if storage upload fails (storage-first order)', async () => {
+    const db = { rows: [] as Record<string, unknown>[], async upsert(r: Record<string, unknown>) { this.rows.push(r); }, async listExisting() { return []; } };
+    const storage: StoragePort = { async upload() { throw new Error('network down'); } };
+    await expect(uploadDoc(html(), { storage, db }, emptyCtx())).rejects.toThrow('network down');
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it('auto-path: uses the assignPath result when no path is authored', async () => {
+    const { storage, db } = makeFakes();
+    const ctx: UploadCtx = {
+      byId: new Map(), byHash: new Map(), autoPath: true,
+      assignPath: async () => 'auto/assigned/here',
+    };
+    const out = await uploadDoc(html({ path: undefined }), { storage, db }, ctx);
+    expect(out.id).toBe('auto/assigned/here');
   });
 });

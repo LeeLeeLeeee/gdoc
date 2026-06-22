@@ -44,10 +44,16 @@ export function createSupabasePorts(
         project: row.project ?? null,
         bucket: row.bucket,
         storage_key: row.storageKey,
+        content_hash: row.contentHash,
         owner_uid: ownerUid ?? null,
         updated_at: new Date().toISOString(),
       });
       if (error) throw error;
+    },
+    async listExisting() {
+      const { data, error } = await sb.from('documents').select('id,content_hash,path');
+      if (error) throw error;
+      return (data ?? []).map((r) => ({ id: r.id, contentHash: r.content_hash, path: r.path }));
     },
   };
 

@@ -1,5 +1,6 @@
 import { parseMeta } from './parseMeta';
-import { resolvePath, slugFromPath } from '../shared/schema';
+import { slugFromPath, type GdocMeta } from '../shared/schema';
+import { contentHash, classifyUpload, defaultPath, type UploadStatus } from './classify';
 import type { Bucket, DbPort, StoragePort } from './ports';
 
 export interface UploadPorts {
@@ -7,28 +8,46 @@ export interface UploadPorts {
   db: DbPort;
 }
 
+export interface UploadCtx {
+  byId: Map<string, string | null>; // docId -> content_hash
+  byHash: Map<string, string>; // content_hash -> docId
+  autoPath?: boolean;
+  folders?: string[]; // existing folder paths (context for the LLM)
+  assignPath?: (meta: GdocMeta, folders: string[]) => Promise<string | null>;
+}
+
 export type UploadOutcome =
-  | { status: 'ok'; id: string; bucket: Bucket; key: string }
+  | { status: UploadStatus; id: string; bucket: Bucket; key: string }
   | { status: 'skip'; reason: 'no-meta-block' | 'invalid-json' };
 
 /**
- * Upload one document. Order matters: storage write first, then db upsert —
- * so a storage failure never leaves an orphaned metadata row pointing at a
- * doc that does not exist. parseMeta throws on a valid-JSON-but-invalid-schema
- * block; the caller turns that into a per-doc failure.
+ * Upload one document. Resolves the folder path (authored → LLM auto-path → default),
+ * then classifies against existing docs (new/updated/unchanged/duplicate). `unchanged`
+ * and `duplicate` are skipped; otherwise storage write then db upsert (storage-first).
  */
-export async function uploadDoc(html: string, ports: UploadPorts): Promise<UploadOutcome> {
+export async function uploadDoc(html: string, ports: UploadPorts, ctx: UploadCtx): Promise<UploadOutcome> {
   const parsed = parseMeta(html);
   if (parsed.status === 'skip') return parsed;
 
   const meta = parsed.meta;
-  const path = resolvePath(meta);
+  const hash = contentHash(html);
+
+  let path = meta.path;
+  if (!path && ctx.autoPath && ctx.assignPath) {
+    path = (await ctx.assignPath(meta, ctx.folders ?? [])) ?? undefined;
+  }
+  if (!path) path = defaultPath(meta);
+
   const id = slugFromPath(path);
-  const bucket: Bucket = meta.visibility; // 'public' | 'private'
+  const bucket: Bucket = meta.visibility;
   const key = `${id}.html`;
 
-  await ports.storage.upload(bucket, key, html, 'text/html; charset=utf-8');
+  const status = classifyUpload(id, hash, ctx.byId, ctx.byHash);
+  if (status === 'unchanged' || status === 'duplicate') {
+    return { status, id, bucket, key };
+  }
 
+  await ports.storage.upload(bucket, key, html, 'text/html; charset=utf-8');
   await ports.db.upsert({
     id,
     uid: meta.uid,
@@ -42,7 +61,8 @@ export async function uploadDoc(html: string, ports: UploadPorts): Promise<Uploa
     project: meta.project,
     bucket,
     storageKey: key,
+    contentHash: hash,
   });
 
-  return { status: 'ok', id, bucket, key };
+  return { status, id, bucket, key };
 }

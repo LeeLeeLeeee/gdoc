@@ -77,11 +77,24 @@ bun으로 실행(`.env` 자동 로드):
 
 ```bash
 bun install
-bun run gdoc upload docs   # docs/ 의 *.html 을 스캔·검증·업로드 (Storage + Postgres)
-bun run gdoc analyze       # 태그 기반 지식 그래프 생성 → private/graph/graph.json
+bun run gdoc upload docs                # 폴더 안 *.html 일괄 업로드
+bun run gdoc upload note.html           # 단일 파일도 가능
+bun run gdoc upload docs --auto-path    # path 없는 문서는 codex/claude가 자동 배치
+bun run gdoc analyze                    # 태그 기반 지식 그래프 → private/graph/graph.json
 ```
 
-- `analyze`는 결정론적 태그 그래프를 기본 생성하고, `codex` 또는 `claude` CLI가 설치돼 있으면 의미 엣지·클러스터 라벨을 보강합니다(없으면 폴백).
+**업로드 분류** — 각 문서를 기존 DB와 대조해 분류하고, `unchanged`/`duplicate`는 건너뜁니다. 끝에 `new=… updated=… unchanged=… duplicate=…` 요약을 출력합니다.
+
+| 판정 | 기준 |
+|---|---|
+| `new` | 처음 보는 `docId(=slug(path))` |
+| `updated` | 같은 docId, 내용 해시 다름 → 덮어쓰기 |
+| `unchanged` | 같은 docId, 같은 해시 → skip |
+| `duplicate` | 같은 해시가 **다른 docId**에 이미 존재 → skip(경고) |
+
+- 중복/변경 판별은 `content_hash`(HTML의 sha256)로 결정론적·저비용. (의미상 유사는 추후 임베딩.)
+- **`--auto-path`**: `path`가 없는 문서는 제목·태그·카테고리 + 기존 폴더 목록을 `codex`/`claude`에 주어 폴더를 자동 배치합니다. 엔진이 없으면 `<project|category>/<title>`로 폴백.
+- `analyze`도 동일하게 codex/claude 있으면 의미 엣지·클러스터 라벨 보강, 없으면 결정론적.
 
 ## 뷰어
 
