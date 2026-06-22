@@ -193,24 +193,6 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
 
-/* ---- mobile: single column, list ↔ detail, bottom sheets ---- */
-@media (max-width: 768px) {
-  .sidebar { width: 100%; flex: 1; border-right: none; }
-  .app.show-detail .sidebar { display: none; }
-  .app.show-list .pane { display: none; }
-
-  .mobile-back { display: inline-flex; position: absolute; top: 12px; left: 12px; z-index: 30; }
-  .doc-head { padding-left: 96px; }
-
-  /* login modal → bottom sheet */
-  .modal-backdrop { align-items: flex-end; }
-  .modal { width: 100%; max-width: none; border-radius: 22px 22px 0 0; padding-bottom: 40px; animation: sheetUp .3s var(--ease-out); }
-
-  /* sort menu → bottom sheet */
-  .sort-menu { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
-    border-radius: 22px 22px 0 0; box-shadow: 0 -20px 50px rgba(0,0,0,.5); padding: 14px 16px 34px; animation: sheetUp .3s var(--ease-out); }
-}
-
 /* ---- login modal ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
   background: rgba(4,6,29,.62); backdrop-filter: blur(5px); }
@@ -226,3 +208,25 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 .small { font-size: 12px; }
 .muted { color: var(--text-faint); }
 .error-text { color: var(--red-500); font-size: 12px; }
+
+/* ---- mobile: single column, list ↔ detail, bottom sheets ----
+   (kept LAST so these overrides win over the equal-specificity base rules above) */
+@media (max-width: 768px) {
+  .sidebar { width: 100%; flex: 1; border-right: none; }
+  .app.show-detail .sidebar { display: none; }
+  .app.show-list .pane { display: none; }
+
+  .mobile-back { display: inline-flex; position: absolute; top: 12px; left: 12px; z-index: 30; }
+  .doc-head { padding-left: 96px; }
+
+  /* iOS auto-zooms when a focused input's font is < 16px — bump it on mobile only */
+  .gd-input { font-size: 16px; }
+
+  /* login modal → bottom sheet */
+  .modal-backdrop { align-items: flex-end; }
+  .modal { width: 100%; max-width: none; border-radius: 22px 22px 0 0; padding-bottom: 40px; animation: sheetUp .3s var(--ease-out); }
+
+  /* sort menu → bottom sheet */
+  .sort-menu { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+    border-radius: 22px 22px 0 0; box-shadow: 0 -20px 50px rgba(0,0,0,.5); padding: 14px 16px 34px; animation: sheetUp .3s var(--ease-out); }
+}
