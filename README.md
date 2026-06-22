@@ -81,7 +81,7 @@ bun install
 bun run gdoc upload docs                # 폴더 안 *.html 일괄 업로드
 bun run gdoc upload note.html           # 단일 파일도 가능
 bun run gdoc upload docs --auto-path    # path 없는 문서는 codex/claude가 자동 배치
-bun run gdoc analyze                    # 태그 기반 지식 그래프 → private/graph/graph.json
+bun run gdoc analyze                    # 임베딩 기반 지식 그래프 → private/graph/graph.json
 ```
 
 **업로드 분류** — 각 문서를 기존 DB와 대조해 분류하고, `unchanged`/`duplicate`는 건너뜁니다. 끝에 `new=… updated=… unchanged=… duplicate=…` 요약을 출력합니다.
@@ -93,16 +93,21 @@ bun run gdoc analyze                    # 태그 기반 지식 그래프 → pri
 | `unchanged` | 같은 docId, 같은 해시 → skip |
 | `duplicate` | 같은 해시가 **다른 docId**에 이미 존재 → skip(경고) |
 
-- 중복/변경 판별은 `content_hash`(HTML의 sha256)로 결정론적·저비용. (의미상 유사는 추후 임베딩.)
+- 중복/변경 판별은 `content_hash`(HTML의 sha256)로 결정론적·저비용.
 - **`--auto-path`**: `path`가 없는 문서는 제목·태그·카테고리 + 기존 폴더 목록을 `codex`/`claude`에 주어 폴더를 자동 배치합니다. 엔진이 없으면 `<project|category>/<title>`로 폴백.
-- `analyze`도 동일하게 codex/claude 있으면 의미 엣지·클러스터 라벨 보강, 없으면 결정론적.
 
-### codex / claude 연동 (LLM 기능 · 선택)
+### `analyze` — 임베딩 기반 지식 그래프
 
-`--auto-path`(자동 폴더 배치)와 `analyze`의 **의미 보강**(시맨틱 엣지·클러스터 라벨)은 로컬에 **codex 또는 claude CLI**가 설치·로그인돼 있어야 동작합니다. **없어도 CLI는 동작**하며, 그땐 자동 폴백합니다:
+각 문서 **본문**을 로컬 임베딩 모델(`Xenova/all-MiniLM-L6-v2`, Transformers.js)로 벡터화해, **코사인 유사도**로 관련 문서를 연결합니다(`kind: "semantic"`). 태그가 겹치지 않아도 내용이 비슷하면 엣지가 생기고, 유사도 그래프의 연결 요소로 **클러스터**가 만들어집니다. 결과는 `private/graph/graph.json`(소유자 전용)에 저장됩니다.
 
-- `--auto-path` → `<project|category>/<title>`
-- `analyze` → 결정론적 태그 그래프
+- **로컬 전용·무료**: API 키·외부 호출 없음. 모델은 첫 실행 시 1회 다운로드(~90MB)되어 캐시됩니다.
+- **Node 필요**: 임베딩은 Node 서브프로세스(`cli/embed-worker.mjs`)에서 실행됩니다(bun이 onnx 백엔드를 로드하지 못해 분리). `node`가 PATH에 있어야 합니다.
+- **증분 분석**: 임베딩 벡터를 `content_hash`와 함께 `private/graph/embeddings.json`에 캐시합니다. 재실행 시 **해시가 바뀐(신규/변경) 문서만 다시 임베딩**하고, 변경이 전혀 없으면 그래프를 그대로 두고 즉시 종료합니다.
+- 클러스터 라벨은 현재 카테고리 기반(결정론적)입니다.
+
+### codex / claude 연동 (auto-path · 선택)
+
+`--auto-path`(자동 폴더 배치)는 로컬에 **codex 또는 claude CLI**가 설치·로그인돼 있어야 동작합니다. 없으면 `<project|category>/<title>`로 폴백합니다.
 
 설치/로그인(둘 중 하나만 있으면 됨):
 
@@ -118,7 +123,7 @@ claude                      # 최초 실행 시 로그인, 또는 ANTHROPIC_API_
 
 - CLI는 **codex → claude 순으로 자동 감지**하고, 둘 다 없거나 실패하면 폴백합니다(추가 설정 불필요 — PATH에 있으면 됨).
 - `claude`(`claude -p`)는 동작하지만 호출당 느립니다. 빠른 자동화엔 **codex 권장**.
-- ⚠️ **프라이버시**: LLM 기능 사용 시 문서 **메타데이터(제목·태그·카테고리)**가 모델 제공자로 전송됩니다(본문은 전송하지 않음).
+- ⚠️ **프라이버시**: `--auto-path` 사용 시 문서 **메타데이터(제목·태그·카테고리)**가 codex/claude 제공자로 전송됩니다(본문은 전송하지 않음). `analyze`는 로컬 임베딩이라 아무것도 전송하지 않습니다.
 
 ## 뷰어
 

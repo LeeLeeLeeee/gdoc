@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGraph, graphSchema } from './graph';
+import { buildGraph, buildSemanticGraph, cosine, graphSchema } from './graph';
 import type { DocSummary } from './buildTree';
 
 const d = (o: Partial<DocSummary> & { id: string }): DocSummary => ({
@@ -44,5 +44,40 @@ describe('buildGraph', () => {
   it('output validates against graphSchema', () => {
     const g = buildGraph([d({ id: 'a', tags: ['t'] }), d({ id: 'b', tags: ['t'] })]);
     expect(() => graphSchema.parse(g)).not.toThrow();
+  });
+});
+
+describe('cosine', () => {
+  it('is 1 for identical, 0 for orthogonal / zero vectors', () => {
+    expect(cosine([1, 2, 3], [1, 2, 3])).toBeCloseTo(1);
+    expect(cosine([1, 0], [0, 1])).toBeCloseTo(0);
+    expect(cosine([0, 0], [1, 1])).toBe(0);
+  });
+});
+
+describe('buildSemanticGraph', () => {
+  const vec = {
+    a: [1, 0, 0],
+    b: [0.96, 0.28, 0], // ~cos 0.96 to a
+    c: [0, 0, 1], // orthogonal to a/b
+  };
+  const docs = [d({ id: 'a', category: 'fe' }), d({ id: 'b', category: 'fe' }), d({ id: 'c', category: 'be' })];
+
+  it('links similar docs (kind semantic) and not dissimilar ones', () => {
+    const g = buildSemanticGraph(docs, vec, { threshold: 0.35 });
+    expect(g.edges).toEqual([{ source: 'a', target: 'b', weight: 4, kind: 'semantic' }]);
+  });
+
+  it('clusters by connected component, labelled by dominant category', () => {
+    const g = buildSemanticGraph(docs, vec, { threshold: 0.35 });
+    expect(g.nodes.find((n) => n.id === 'a')!.cluster).toBe(g.nodes.find((n) => n.id === 'b')!.cluster);
+    expect(g.nodes.find((n) => n.id === 'c')!.cluster).not.toBe(g.nodes.find((n) => n.id === 'a')!.cluster);
+    expect(g.clusters.find((cl) => cl.id === g.nodes.find((n) => n.id === 'a')!.cluster)!.label).toBe('fe');
+  });
+
+  it('skips docs without a vector, output validates against graphSchema', () => {
+    const g = buildSemanticGraph(docs, { a: vec.a, b: vec.b }, { threshold: 0.35 });
+    expect(() => graphSchema.parse(g)).not.toThrow();
+    expect(g.nodes).toHaveLength(3); // c still a node, just unlinked
   });
 });
