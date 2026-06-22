@@ -178,7 +178,7 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 .doc-page { width: 100%; max-width: 920px; display: flex; background: #fff; border: 1px solid var(--border-default);
   border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 14px 38px rgba(0,0,0,.42); animation: docIn .45s var(--ease-out) both; }
 .doc-page .doc-frame { flex: 1; width: 100%; border: 0; background: #fff; }
-.doc-page.loading-glow { background: var(--surface-card); align-items: center; justify-content: center; }
+.doc-page.msg { background: var(--surface-card); align-items: center; justify-content: center; }
 
 /* loading = pulsing brand glow on the relevant card / row / page */
 @keyframes glowpulse {

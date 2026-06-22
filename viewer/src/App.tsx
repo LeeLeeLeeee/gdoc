@@ -152,18 +152,7 @@ export default function App() {
         )}
         {view === 'graph' ? (
           <GraphView session={session} docs={docs} onSelect={(d) => { setSelected(d); setView('tree'); }} />
-        ) : selected && loadError ? (
-          <div className="pane-center">
-            <div className="empty">
-              <div className="err-badge"><Alert size={28} /></div>
-              <div className="title" style={{ color: 'var(--text-strong)' }}>문서를 불러오지 못했습니다</div>
-              <div className="sub">파일이 이동되었거나 접근 권한이 없을 수 있습니다.</div>
-              <div style={{ marginTop: 20 }}>
-                <button className="btn btn-ghost" onClick={() => setReload((n) => n + 1)}>다시 시도</button>
-              </div>
-            </div>
-          </div>
-        ) : selected && docHtml !== null ? (
+        ) : selected ? (
           <div className="doc-show" key={selected.id}>
             <div className="doc-head">
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -176,17 +165,26 @@ export default function App() {
               </span>
             </div>
             <div className="doc-reader">
-              <div className="doc-page">
-                <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
-              </div>
-            </div>
-          </div>
-        ) : selected ? (
-          <div className="doc-show">
-            <div className="doc-reader">
-              <div className="doc-page loading-glow">
-                <div className="empty"><div className="spinner" /><div className="sub">문서 불러오는 중…</div></div>
-              </div>
+              {loadError ? (
+                <div className="doc-page msg" key="err">
+                  <div className="empty">
+                    <div className="err-badge"><Alert size={28} /></div>
+                    <div className="title" style={{ color: 'var(--text-strong)' }}>문서를 불러오지 못했습니다</div>
+                    <div className="sub">파일이 이동되었거나 접근 권한이 없을 수 있습니다.</div>
+                    <div style={{ marginTop: 20 }}>
+                      <button className="btn btn-ghost" onClick={() => setReload((n) => n + 1)}>다시 시도</button>
+                    </div>
+                  </div>
+                </div>
+              ) : docHtml !== null ? (
+                <div className="doc-page" key="page">
+                  <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
+                </div>
+              ) : (
+                <div className="doc-page msg loading-glow" key="loading">
+                  <div className="empty"><div className="spinner" /><div className="sub">문서 불러오는 중…</div></div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
