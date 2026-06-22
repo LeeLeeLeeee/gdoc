@@ -1,38 +1,29 @@
-import { useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { sb } from './supabase';
+import { Logout } from './icons';
 
-/** Email+password login bar. Signed in → owner (sees private docs via RLS). */
-export function AuthBar({ session }: { session: Session | null }) {
-  const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  if (session) {
+/** Logged-out: a glass card with a 로그인 button (opens the modal).
+ *  Logged-in: avatar + email + owner badge + 로그아웃. */
+export function AuthBar({ session, onLogin }: { session: Session | null; onLogin: () => void }) {
+  if (!session) {
     return (
-      <div className="authbar">
-        <span className="small muted">{session.user.email}</span>
-        <button onClick={() => sb.auth.signOut()}>로그아웃</button>
+      <div className="auth-logged-out">
+        <div className="hint">공개 문서만 보는 중</div>
+        <button className="btn btn-primary btn-pill-sm" onClick={onLogin}>로그인</button>
       </div>
     );
   }
-
-  const signIn = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setErr(null);
-    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-    if (error) setErr(error.message);
-    setBusy(false);
-  };
-
+  const email = session.user.email ?? '소유자';
   return (
-    <form className="authbar login" onSubmit={signIn}>
-      <input type="email" placeholder="이메일" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input type="password" placeholder="비밀번호" value={pw} onChange={(e) => setPw(e.target.value)} required />
-      <button disabled={busy}>{busy ? '…' : '로그인'}</button>
-      {err && <span className="error small">{err}</span>}
-    </form>
+    <div className="auth-bar">
+      <div className="avatar">{email.slice(0, 1).toUpperCase()}</div>
+      <div className="who">
+        <div className="email">{email}</div>
+        <div className="role">소유자 · 로그인됨</div>
+      </div>
+      <button className="btn btn-ghost btn-pill-sm" onClick={() => sb.auth.signOut()}>
+        <Logout /> 로그아웃
+      </button>
+    </div>
   );
 }

@@ -11,6 +11,8 @@ const doc = (path: string, extra: Partial<DocSummary> = {}): DocSummary => ({
   storageKey: `${path}.html`,
   tags: [],
   category: 'frontend',
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
   ...extra,
 });
 

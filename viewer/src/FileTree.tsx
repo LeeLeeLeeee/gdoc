@@ -6,10 +6,20 @@ import {
 } from '@pierre/trees/react';
 import type { DocSummary } from '../../shared/buildTree';
 
-/**
- * Wrapper that isolates @pierre/trees (v1 beta) behind our own API.
- * Swapping the underlying tree lib later only touches this file (eng-review D2).
- */
+// Dark-theme overrides for @pierre/trees (renders in a shadow root; CSS custom
+// properties inherit through the boundary). Keeps the beta lib isolated here (D2).
+const TREE_THEME: React.CSSProperties = {
+  height: '100%',
+  background: 'transparent',
+  // documented @pierre/trees override hooks
+  ['--trees-fg-override' as string]: 'var(--text-default)',
+  ['--trees-selected-bg-override' as string]: 'var(--brand-soft)',
+  ['--trees-border-color-override' as string]: 'transparent',
+  ['--trees-theme-bg' as string]: 'transparent',
+  ['--trees-theme-fg' as string]: 'var(--text-default)',
+};
+
+/** Wrapper isolating @pierre/trees. `docs` arrives already filtered + sorted. */
 export function FileTree({
   docs,
   onSelect,
@@ -22,12 +32,11 @@ export function FileTree({
 
   const { model } = useFileTree({
     paths,
-    search: true,
+    search: false, // our own meta + name filters drive the doc set
     initialExpansion: 'open',
     flattenEmptyDirectories: true,
   });
 
-  // Keep the tree in sync when the filtered doc set changes.
   useEffect(() => {
     model.resetPaths(paths);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,5 +51,5 @@ export function FileTree({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
-  return <PierreFileTree model={model} header={<strong>문서</strong>} style={{ height: '100%' }} />;
+  return <PierreFileTree model={model} style={TREE_THEME} />;
 }

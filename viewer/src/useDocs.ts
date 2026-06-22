@@ -15,7 +15,7 @@ export function useDocs(authKey: string | null) {
     let cancelled = false;
     setLoading(true);
     sb.from('documents')
-      .select('id,title,type,path,visibility,bucket,storage_key,tags,category')
+      .select('id,title,type,path,visibility,bucket,storage_key,tags,category,created_at,updated_at')
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
@@ -32,6 +32,8 @@ export function useDocs(authKey: string | null) {
               storageKey: r.storage_key,
               tags: r.tags ?? [],
               category: r.category,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at,
             })),
           );
         }
