@@ -74,9 +74,13 @@ export default function App() {
   const hasFilter = q.trim() !== '' || name.trim() !== '';
   const countLabel = session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
   const crumb = selected ? selected.path.split('/').slice(0, -1).join(' / ') : '';
+  const docLoading = !!selected && docHtml === null && !loadError;
+  const loadingPath = docLoading && selected ? selected.path : undefined;
+  // mobile: single column — show the list, or the detail (a doc / the graph)
+  const mobileScreen = view === 'graph' || selected ? 'show-detail' : 'show-list';
 
   return (
-    <div className="app">
+    <div className={`app ${mobileScreen}`}>
       <aside className="sidebar">
         <div className="side-head">
           <div className="brand">
@@ -130,9 +134,9 @@ export default function App() {
             <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
           ) : visible.length ? (
             view === 'tree' ? (
-              <FileTree docs={visible} selectedPath={selected?.path} onSelect={setSelected} />
+              <FileTree docs={visible} selectedPath={selected?.path} loadingPath={loadingPath} onSelect={setSelected} />
             ) : (
-              <CardView docs={visible} terms={[q, name]} selectedPath={selected?.path} onSelect={setSelected} filtered={hasFilter} />
+              <CardView docs={visible} terms={[q, name]} selectedPath={selected?.path} loadingPath={loadingPath} onSelect={setSelected} filtered={hasFilter} />
             )
           ) : (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>
@@ -143,6 +147,9 @@ export default function App() {
       </aside>
 
       <main className="pane">
+        {(selected || view === 'graph') && (
+          <button className="mobile-back" onClick={() => (view === 'graph' ? setView('tree') : setSelected(null))}>← 목록</button>
+        )}
         {view === 'graph' ? (
           <GraphView session={session} docs={docs} onSelect={(d) => { setSelected(d); setView('tree'); }} />
         ) : selected && loadError ? (
@@ -168,13 +175,18 @@ export default function App() {
                 {selected.visibility === 'private' ? '비공개' : '공개'}
               </span>
             </div>
-            <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
+            <div className="doc-reader">
+              <div className="doc-page">
+                <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
+              </div>
+            </div>
           </div>
         ) : selected ? (
-          <div className="pane-center">
-            <div className="empty">
-              <div className="spinner" />
-              <div className="sub">문서 불러오는 중…</div>
+          <div className="doc-show">
+            <div className="doc-reader">
+              <div className="doc-page loading-glow">
+                <div className="empty"><div className="spinner" /><div className="sub">문서 불러오는 중…</div></div>
+              </div>
             </div>
           </div>
         ) : (

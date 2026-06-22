@@ -27,12 +27,14 @@ export function CardView({
   docs,
   terms,
   selectedPath,
+  loadingPath,
   onSelect,
   filtered,
 }: {
   docs: DocSummary[];
   terms: string[];
   selectedPath?: string;
+  loadingPath?: string;
   onSelect: (d: DocSummary) => void;
   filtered: boolean;
 }) {
@@ -50,7 +52,7 @@ export function CardView({
           <div className="eyebrow" style={{ padding: '0 4px 8px' }}>{g.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {g.items.map((d) => (
-              <div key={d.id} className={`card${d.path === selectedPath ? ' sel' : ''}`} onClick={() => onSelect(d)}>
+              <div key={d.id} className={`card${d.path === selectedPath ? ' sel' : ''}${d.path === loadingPath ? ' loading' : ''}`} onClick={() => onSelect(d)}>
                 <div className="card-title">
                   <File size={14} color="var(--text-faint)" />
                   <span style={{ flex: 1, minWidth: 0 }}><Highlight text={d.title} terms={terms} /></span>

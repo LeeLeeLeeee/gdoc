@@ -11,12 +11,14 @@ import { TreeView } from './TreeView';
 export function FileTree({
   docs,
   selectedPath,
+  loadingPath,
   onSelect,
 }: {
   docs: DocSummary[];
   selectedPath?: string;
+  loadingPath?: string;
   onSelect: (doc: DocSummary) => void;
 }) {
   const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false })), [docs]);
-  return <TreeView nodes={tree} selectedPath={selectedPath} onSelect={onSelect} />;
+  return <TreeView nodes={tree} selectedPath={selectedPath} loadingPath={loadingPath} onSelect={onSelect} />;
 }
