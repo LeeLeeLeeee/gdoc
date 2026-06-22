@@ -10,11 +10,15 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-zoom": "^3.0.8",
     "@vitejs/plugin-react": "^4.3.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.2"

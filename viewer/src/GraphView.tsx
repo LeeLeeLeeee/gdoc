@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   forceSimulation,
   forceLink,
@@ -6,6 +6,8 @@ import {
   forceCenter,
   forceCollide,
 } from 'd3-force';
+import { select } from 'd3-selection';
+import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
 import type { Session } from '@supabase/supabase-js';
 import { graphSchema, type Graph } from '../../shared/graph';
 import type { DocSummary } from '../../shared/buildTree';
@@ -32,6 +34,25 @@ export function GraphView({
   const [nodes, setNodes] = useState<PNode[]>([]);
   const [links, setLinks] = useState<PLink[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [tf, setTf] = useState('');
+  const svgRef = useRef<SVGSVGElement>(null);
+  const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+
+  // wheel-zoom + drag-pan via d3-zoom (transform applied to the inner <g>)
+  useEffect(() => {
+    if (!svgRef.current || nodes.length === 0) return;
+    const z = zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.2, 4])
+      .on('zoom', (e) => setTf(e.transform.toString()));
+    zoomRef.current = z;
+    select(svgRef.current).call(z);
+  }, [nodes.length]);
+
+  const resetView = () => {
+    if (svgRef.current && zoomRef.current) {
+      select(svgRef.current).transition().duration(250).call(zoomRef.current.transform, zoomIdentity);
+    }
+  };
 
   useEffect(() => {
     if (!session) return;
@@ -80,18 +101,25 @@ export function GraphView({
   const color = (c: string) => PALETTE[Math.max(0, clusters.indexOf(c)) % PALETTE.length];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }}>
-      {links.map((l, i) => (
-        <line key={i} x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y}
-          stroke="rgba(255,255,255,.14)" strokeWidth={Math.min(l.weight, 4)} />
-      ))}
-      {nodes.map((n) => (
-        <g key={n.id} transform={`translate(${n.x},${n.y})`} style={{ cursor: 'pointer' }}
-          onClick={() => { const d = docs.find((x) => x.id === n.id); if (d) onSelect(d); }}>
-          <circle r={11} fill={color(n.cluster)} stroke="rgba(255,255,255,.3)" strokeWidth={1.5} />
-          <text x={15} y={4} fontSize={12} fill="#c3c9db">{n.label}</text>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet"
+        style={{ width: '100%', height: '100%', cursor: 'grab', display: 'block' }}>
+        <g transform={tf}>
+          {links.map((l, i) => (
+            <line key={i} x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y}
+              stroke="rgba(255,255,255,.14)" strokeWidth={Math.min(l.weight, 4)} />
+          ))}
+          {nodes.map((n) => (
+            <g key={n.id} transform={`translate(${n.x},${n.y})`} style={{ cursor: 'pointer' }}
+              onClick={() => { const d = docs.find((x) => x.id === n.id); if (d) onSelect(d); }}>
+              <circle r={11} fill={color(n.cluster)} stroke="rgba(255,255,255,.3)" strokeWidth={1.5} />
+              <text x={15} y={4} fontSize={12} fill="#c3c9db">{n.label}</text>
+            </g>
+          ))}
         </g>
-      ))}
-    </svg>
+      </svg>
+      <div className="graph-hint">스크롤: 확대/축소 · 드래그: 이동</div>
+      <button className="btn btn-ghost btn-pill-sm graph-reset" onClick={resetView}>초기화</button>
+    </div>
   );
 }
