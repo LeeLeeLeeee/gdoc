@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "bun install && cd viewer && bun install",
+  "buildCommand": "cd viewer && bun run build",
+  "outputDirectory": "viewer/dist"
+}

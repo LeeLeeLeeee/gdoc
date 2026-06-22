@@ -6,3 +6,5 @@ dist/
 service-role*.json
 .supabase/
 .gstack/
+
+.vercel
