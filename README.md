@@ -68,8 +68,9 @@ gdoc/
 
 - `type`: `tech-note | overview | change-log | feature-spec | deploy-test | index`
 - `visibility`: `public | private` (기본 private)
-- `path`: 트리 폴더 경로(슬래시 구분). 문서 식별자 = `slug(path)`
+- `path`(선택): 트리 폴더 경로(슬래시 구분). 문서 식별자 = `slug(path)`. **생략 가능** — `--auto-path`(codex/claude) 또는 `<project|category>/<title>` 폴백으로 자동 결정.
 - `uid`(선택): 지식 그래프 노드의 안정적 식별자
+- `tags`(선택, 기본 `[]`), `createdAt`: ISO-8601
 
 ## CLI
 

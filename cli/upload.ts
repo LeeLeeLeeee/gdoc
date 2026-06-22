@@ -1,6 +1,6 @@
 import { parseMeta } from './parseMeta';
 import { slugFromPath, type GdocMeta } from '../shared/schema';
-import { contentHash, classifyUpload, defaultPath, type UploadStatus } from './classify';
+import { contentHash, classifyUpload, defaultPath, storageKey, type UploadStatus } from './classify';
 import type { Bucket, DbPort, StoragePort } from './ports';
 
 export interface UploadPorts {
@@ -40,7 +40,7 @@ export async function uploadDoc(html: string, ports: UploadPorts, ctx: UploadCtx
 
   const id = slugFromPath(path);
   const bucket: Bucket = meta.visibility;
-  const key = `${id}.html`;
+  const key = storageKey(id);
 
   const status = classifyUpload(id, hash, ctx.byId, ctx.byHash);
   if (status === 'unchanged' || status === 'duplicate') {

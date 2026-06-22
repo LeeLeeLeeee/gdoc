@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { contentHash, classifyUpload, defaultPath } from './classify';
+import { contentHash, classifyUpload, defaultPath, storageKey } from './classify';
 import type { GdocMeta } from '../shared/schema';
 
 describe('contentHash', () => {
@@ -35,5 +35,17 @@ describe('defaultPath', () => {
   it('uses project when present, else category, then title', () => {
     expect(defaultPath(base({ project: 'proj' }))).toBe('proj/My Note');
     expect(defaultPath(base({}))).toBe('frontend/My Note');
+  });
+});
+
+describe('storageKey', () => {
+  it('is ASCII-only, ends with .html, and deterministic', () => {
+    const k = storageKey('test/스모크-b');
+    expect(k).toMatch(/^[a-z0-9-]+\.html$/); // no Korean / slashes
+    expect(storageKey('test/스모크-b')).toBe(k);
+  });
+  it('differs per id and keeps an ASCII-readable prefix', () => {
+    expect(storageKey('smoke/a')).toMatch(/^smoke-a-[0-9a-f]{10}\.html$/);
+    expect(storageKey('smoke/a')).not.toBe(storageKey('smoke/b'));
   });
 });

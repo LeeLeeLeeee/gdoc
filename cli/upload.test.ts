@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { uploadDoc, type UploadCtx } from './upload';
-import { contentHash } from './classify';
+import { contentHash, storageKey } from './classify';
 import { slugFromPath } from '../shared/schema';
 import type { StoragePort, DbPort } from './ports';
 
@@ -44,7 +44,7 @@ describe('uploadDoc', () => {
   it('new doc → status new, uploads body then upserts a row keyed by slug(path) with hash', async () => {
     const { storage, db } = makeFakes();
     const out = await uploadDoc(html(), { storage, db }, emptyCtx());
-    expect(out).toMatchObject({ status: 'new', id: ID, bucket: 'private', key: `${ID}.html` });
+    expect(out).toMatchObject({ status: 'new', id: ID, bucket: 'private', key: storageKey(ID) });
     expect(db.rows).toHaveLength(1);
     expect(db.rows[0]).toMatchObject({ id: ID, visibility: 'private', path: 'Playground/Tech Notes/React Query' });
     expect(db.rows[0].contentHash).toMatch(/^[0-9a-f]{64}$/);
