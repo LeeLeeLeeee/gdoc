@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+*.serviceaccount.json
+service-role*.json
+.supabase/
+.gstack/
