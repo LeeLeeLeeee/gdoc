@@ -166,6 +166,11 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 .badge-amber { background: rgba(255,176,32,.16); color: var(--amber-500); }
 .doc-frame { flex: 1; width: 100%; border: 0; background: #fff; }
 
+/* graceful document entrance: fade + gentle rise instead of a hard pop */
+@keyframes docIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.doc-show { display: flex; flex-direction: column; flex: 1; min-height: 0; animation: docIn .4s var(--ease-out) both; }
+.doc-show .doc-frame { animation: docIn .5s var(--ease-out) both; }
+
 /* ---- login modal ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
   background: rgba(4,6,29,.62); backdrop-filter: blur(5px); }

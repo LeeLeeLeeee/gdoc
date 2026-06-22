@@ -81,7 +81,7 @@ export default function App() {
         <div className="side-head">
           <div className="brand">
             <Logo size={20} />
-            <span className="brand-name">gdoc 뷰어</span>
+            <span className="brand-name">Trove</span>
           </div>
           <AuthBar session={session} onLogin={() => setShowLogin(true)} />
           <div className="field">
@@ -157,7 +157,7 @@ export default function App() {
             </div>
           </div>
         ) : selected && docHtml !== null ? (
-          <>
+          <div className="doc-show" key={selected.id}>
             <div className="doc-head">
               <div style={{ flex: 1, minWidth: 0 }}>
                 {crumb && <div className="crumb">{crumb}</div>}
@@ -169,7 +169,7 @@ export default function App() {
               </span>
             </div>
             <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
-          </>
+          </div>
         ) : selected ? (
           <div className="pane-center">
             <div className="empty">
