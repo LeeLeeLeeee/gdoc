@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildTree, type DocSummary } from '../../shared/buildTree';
+import { buildTree, flattenTree, type DocSummary } from '../../shared/buildTree';
 import { TreeView } from './TreeView';
 
 /**
@@ -17,6 +17,6 @@ export function FileTree({
   selectedPath?: string;
   onSelect: (doc: DocSummary) => void;
 }) {
-  const tree = useMemo(() => buildTree(docs, { sort: false }), [docs]);
+  const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false })), [docs]);
   return <TreeView nodes={tree} selectedPath={selectedPath} onSelect={onSelect} />;
 }

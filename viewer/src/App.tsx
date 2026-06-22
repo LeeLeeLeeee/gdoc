@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileTree } from './FileTree';
+import { CardView } from './CardView';
 import { useDocs } from './useDocs';
 import { useSession } from './auth';
 import { AuthBar } from './AuthBar';
@@ -18,6 +19,7 @@ export default function App() {
   const [name, setName] = useState(''); // name search
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [view, setView] = useState<'tree' | 'card'>('tree');
 
   const [selected, setSelected] = useState<DocSummary | null>(null);
   const [docHtml, setDocHtml] = useState<string | null>(null);
@@ -90,7 +92,13 @@ export default function App() {
         <div className="doc-controls">
           <div className="row-between">
             <span className="eyebrow">{countLabel}</span>
-            <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="seg">
+                <button className={view === 'tree' ? 'on' : ''} onClick={() => setView('tree')}>트리</button>
+                <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
+              </div>
+              <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
+            </div>
           </div>
           <div className="field">
             <span className="ico"><Search /></span>
@@ -115,7 +123,11 @@ export default function App() {
           ) : error ? (
             <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
           ) : visible.length ? (
-            <FileTree docs={visible} selectedPath={selected?.path} onSelect={setSelected} />
+            view === 'tree' ? (
+              <FileTree docs={visible} selectedPath={selected?.path} onSelect={setSelected} />
+            ) : (
+              <CardView docs={visible} terms={[q, name]} selectedPath={selected?.path} onSelect={setSelected} filtered={hasFilter} />
+            )
           ) : (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>
               {hasFilter ? '필터와 일치하는 문서가 없습니다' : '문서 없음'}

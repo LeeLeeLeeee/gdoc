@@ -113,8 +113,26 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
   font-size: 13.5px; color: var(--text-muted); cursor: pointer; }
 .tnode:hover { background: var(--surface-glass); }
 .tfolder { color: var(--text-default); font-weight: 600; }
-.tfile.sel { background: var(--brand-soft); color: var(--text-strong); font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
+.tfile.sel { background: var(--brand-soft); color: var(--text-strong); font-weight: 600; }
 .tname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 6px rgba(30,107,255,.6); }
+
+/* segmented view toggle */
+.seg { display: inline-flex; background: var(--surface-glass); border: 1px solid var(--border-default); border-radius: var(--radius-pill); padding: 2px; }
+.seg button { padding: 3px 11px; border: none; background: transparent; color: var(--text-muted); font-size: 11.5px; font-family: var(--font-sans); border-radius: var(--radius-pill); cursor: pointer; }
+.seg button.on { background: var(--brand-soft); color: var(--blue-100); font-weight: 600; }
+
+/* card view */
+.cards-wrap { display: flex; flex-direction: column; gap: 14px; padding: 4px 4px 12px; }
+.card { padding: 11px 13px; border-radius: var(--radius-md); background: var(--surface-glass); border: 1px solid var(--border-default); cursor: pointer; transition: background var(--dur), border-color var(--dur); }
+.card:hover { background: var(--surface-glass-strong); }
+.card.sel { border-color: var(--border-focus); background: var(--brand-soft); }
+.card-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13.5px; font-weight: 600; color: var(--text-strong); }
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 10px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--surface-glass-strong); color: var(--text-faint); }
+.tag.type { font-weight: 600; color: var(--text-muted); }
+.card-note { text-align: center; color: var(--text-faint); font-size: 11.5px; padding-top: 4px; }
+mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; padding: 0 1px; }
 
 /* loading spinner */
 .spinner { width: 28px; height: 28px; margin: 0 auto 14px; border-radius: 50%;

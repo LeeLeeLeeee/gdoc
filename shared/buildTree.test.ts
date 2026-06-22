@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, type DocSummary } from './buildTree';
+import { buildTree, flattenTree, type DocSummary } from './buildTree';
 
 const doc = (path: string, extra: Partial<DocSummary> = {}): DocSummary => ({
   id: path,
@@ -57,6 +57,18 @@ describe('buildTree', () => {
     const folder = tree[0];
     if (folder.kind !== 'folder') throw new Error('expected folder');
     expect(folder.children.map((n) => n.name)).toEqual(['zebra', 'apple']);
+  });
+
+  it('flattenTree merges single-child folder chains', () => {
+    const t = flattenTree(buildTree([doc('a/b/c'), doc('a/b/d')]));
+    expect(t[0].name).toBe('a / b');
+    if (t[0].kind !== 'folder') throw new Error('expected folder');
+    expect(t[0].children.map((n) => n.name)).toEqual(['c', 'd']);
+  });
+
+  it('flattenTree does not merge a folder holding a single file', () => {
+    const t = flattenTree(buildTree([doc('a/x')]));
+    expect(t[0].name).toBe('a');
   });
 
   it('carries the doc summary on the file leaf', () => {

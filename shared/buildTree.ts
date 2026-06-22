@@ -58,6 +58,20 @@ export function buildTree(docs: DocSummary[], opts: { sort?: boolean } = {}): Tr
   return opts.sort === false ? roots : sortNodes(roots);
 }
 
+/** Collapse single-child folder chains into one row: a → b → [files] becomes "a / b". */
+export function flattenTree(nodes: TreeNode[]): TreeNode[] {
+  return nodes.map((n) => {
+    if (n.kind !== 'folder') return n;
+    let folder = n;
+    let name = folder.name;
+    while (folder.children.length === 1 && folder.children[0].kind === 'folder') {
+      folder = folder.children[0] as FolderNode;
+      name += ` / ${folder.name}`;
+    }
+    return { kind: 'folder', name, path: folder.path, children: flattenTree(folder.children) };
+  });
+}
+
 function sortNodes(nodes: TreeNode[]): TreeNode[] {
   for (const node of nodes) {
     if (node.kind === 'folder') sortNodes(node.children);
