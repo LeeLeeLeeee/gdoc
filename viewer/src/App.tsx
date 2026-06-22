@@ -189,7 +189,6 @@ export default function App() {
           </div>
         ) : (
           <div className="pane-center">
-            <div className="pane-glow" />
             <div className="empty">
               <Logo size={42} />
               <div className="title">문서를 선택하세요</div>
