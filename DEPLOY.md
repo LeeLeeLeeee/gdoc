@@ -8,7 +8,7 @@ the `gdoc` folder.
 
 | Setting | Value |
 |---|---|
-| **Root Directory** | `gdoc` (the folder containing `shared/` + `viewer/`). If you pushed `gdoc` itself as the repo, use the repo root. |
+| **Root Directory** | Leave as the **repo root** (`./`) — this repo's root already contains `shared/` + `viewer/`. |
 | **Framework Preset** | Vite |
 | **Install Command** | `cd viewer && bun install` |
 | **Build Command** | `cd viewer && bun run build` |
