@@ -35,7 +35,7 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
 .app { display: flex; height: 100%; background: var(--bg-base); }
 .sidebar { width: 300px; flex: none; display: flex; flex-direction: column; min-height: 0;
   border-right: 1px solid var(--border-subtle); background: var(--navy-900); }
-.pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-base); }
+.pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-base); overflow: hidden; }
 
 /* ---- brand / header block ---- */
 .side-head { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid var(--border-subtle); }
@@ -98,12 +98,15 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
 .sort-menu { position: absolute; top: 34px; right: 0; width: 200px; background: var(--surface-elevated);
   border: 1px solid var(--border-default); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 6px; z-index: 40; }
 .sort-item { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--radius-sm);
-  font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
+  font-size: 12.5px; color: var(--text-muted); cursor: pointer; transition: background var(--dur), color var(--dur); }
+.sort-item:hover { background: var(--surface-glass); color: var(--text-default); }
 .sort-item.sel { color: var(--text-strong); font-weight: 600; background: var(--brand-soft); }
+.sort-item.sel:hover { background: var(--brand-soft); color: var(--text-strong); }
 .sort-dir { display: flex; gap: 5px; margin-top: 5px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
 .sort-dir button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 6px;
   border-radius: var(--radius-sm); border: 1px solid transparent; background: transparent; color: var(--text-muted);
   font-size: 11.5px; font-family: var(--font-sans); cursor: pointer; }
+.sort-dir button:hover { background: var(--surface-glass); color: var(--text-default); }
 .sort-dir button.on { background: var(--surface-glass-strong); color: var(--text-strong); font-weight: 600; }
 
 /* ---- tree ---- */
