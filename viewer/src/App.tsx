@@ -45,7 +45,7 @@ export default function App() {
     return sortDocs(filtered, sortKey, sortDir);
   }, [docs, q, name, sortKey, sortDir]);
 
-  // load selected doc into the iframe (fetch text → srcDoc; Supabase serves HTML as text/plain)
+  // load selected doc into the iframe (fetch text → blob URL; Supabase serves HTML as text/plain)
   useEffect(() => {
     let cancelled = false;
     if (!selected) {
@@ -70,6 +70,19 @@ export default function App() {
       cancelled = true;
     };
   }, [selected, reload]);
+
+  // render via a real blob: URL rather than srcDoc, so the doc's own #anchor TOC links
+  // scroll within the document instead of navigating to about:srcdoc#… (which blanks it)
+  const blobUrl = useMemo(
+    () => (docHtml === null ? null : URL.createObjectURL(new Blob([docHtml], { type: 'text/html' }))),
+    [docHtml],
+  );
+  useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, [blobUrl]);
+
+  // hold the iframe hidden until it fires `load`, so a dark backdrop shows during
+  // paint instead of a white flash; revealed via a fade once the doc is rendered
+  const [frameReady, setFrameReady] = useState(false);
+  useEffect(() => { setFrameReady(false); }, [blobUrl]);
 
   const hasFilter = q.trim() !== '' || name.trim() !== '';
   const countLabel = session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
@@ -178,7 +191,7 @@ export default function App() {
                 </div>
               ) : docHtml !== null ? (
                 <div className="doc-page" key="page">
-                  <iframe className="doc-frame" title={selected.title} srcDoc={docHtml} sandbox="allow-scripts allow-popups" />
+                  <iframe className={`doc-frame${frameReady ? ' ready' : ''}`} title={selected.title} src={blobUrl ?? undefined} onLoad={() => setFrameReady(true)} sandbox="allow-scripts allow-popups allow-same-origin" />
                 </div>
               ) : (
                 <div className="doc-page msg loading-glow" key="loading">

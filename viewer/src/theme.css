@@ -171,11 +171,11 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 @keyframes docIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .doc-show { display: flex; flex-direction: column; flex: 1; min-height: 0; animation: docIn .4s var(--ease-out) both; }
 
-/* reader: the document renders inside a centered "page" card on a soft backdrop */
-.doc-reader { flex: 1; min-height: 0; display: flex; justify-content: center; background: var(--bg-section); padding: 16px; }
-.doc-page { width: 100%; max-width: 920px; display: flex; background: #fff; border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 14px 38px rgba(0,0,0,.42); animation: docIn .45s var(--ease-out) both; }
-.doc-page .doc-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+/* reader: the document body fills the pane directly (no page card / backdrop) */
+.doc-reader { flex: 1; min-height: 0; display: flex; }
+.doc-page { flex: 1; width: 100%; display: flex; background: var(--bg-section); overflow: hidden; animation: docIn .45s var(--ease-out) both; }
+.doc-page .doc-frame { flex: 1; width: 100%; border: 0; background: #fff; opacity: 0; transition: opacity .25s var(--ease-out); }
+.doc-page .doc-frame.ready { opacity: 1; }
 .doc-page.msg { background: var(--surface-card); align-items: center; justify-content: center; }
 
 /* loading = pulsing brand glow on the relevant card / row / page */
@@ -198,9 +198,6 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
   .sidebar { width: 100%; flex: 1; border-right: none; }
   .app.show-detail .sidebar { display: none; }
   .app.show-list .pane { display: none; }
-
-  .doc-reader { padding: 0; }
-  .doc-page { max-width: none; border-radius: 0; border: none; box-shadow: none; }
 
   .mobile-back { display: inline-flex; position: absolute; top: 12px; left: 12px; z-index: 30; }
   .doc-head { padding-left: 96px; }
