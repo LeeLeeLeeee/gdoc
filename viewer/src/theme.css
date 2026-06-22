@@ -116,7 +116,6 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
 .tfolder { color: var(--text-default); font-weight: 600; }
 .tfile.sel { background: var(--brand-soft); color: var(--text-strong); font-weight: 600; }
 .tname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 6px rgba(30,107,255,.6); }
 
 /* segmented view toggle */
 .seg { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }

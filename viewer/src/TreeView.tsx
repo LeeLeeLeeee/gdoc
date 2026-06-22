@@ -54,7 +54,6 @@ function TreeRow({
       <File size={14} color={sel ? 'var(--blue-300)' : 'var(--text-faint)'} />
       <span className="tname">{node.name}</span>
       {node.doc.visibility === 'private' && <Lock size={11} color="var(--amber-500)" />}
-      {sel && <span className="dot" />}
     </div>
   );
 }
