@@ -97,6 +97,29 @@ bun run gdoc analyze                    # 태그 기반 지식 그래프 → pri
 - **`--auto-path`**: `path`가 없는 문서는 제목·태그·카테고리 + 기존 폴더 목록을 `codex`/`claude`에 주어 폴더를 자동 배치합니다. 엔진이 없으면 `<project|category>/<title>`로 폴백.
 - `analyze`도 동일하게 codex/claude 있으면 의미 엣지·클러스터 라벨 보강, 없으면 결정론적.
 
+### codex / claude 연동 (LLM 기능 · 선택)
+
+`--auto-path`(자동 폴더 배치)와 `analyze`의 **의미 보강**(시맨틱 엣지·클러스터 라벨)은 로컬에 **codex 또는 claude CLI**가 설치·로그인돼 있어야 동작합니다. **없어도 CLI는 동작**하며, 그땐 자동 폴백합니다:
+
+- `--auto-path` → `<project|category>/<title>`
+- `analyze` → 결정론적 태그 그래프
+
+설치/로그인(둘 중 하나만 있으면 됨):
+
+```bash
+# 옵션 A — Codex (OpenAI). 비대화형이라 CLI 자동화에 권장(빠름)
+npm install -g @openai/codex
+codex login                 # 또는 OPENAI_API_KEY / CODEX_API_KEY 환경변수
+
+# 옵션 B — Claude (Anthropic)
+npm install -g @anthropic-ai/claude-code
+claude                      # 최초 실행 시 로그인, 또는 ANTHROPIC_API_KEY 환경변수
+```
+
+- CLI는 **codex → claude 순으로 자동 감지**하고, 둘 다 없거나 실패하면 폴백합니다(추가 설정 불필요 — PATH에 있으면 됨).
+- `claude`(`claude -p`)는 동작하지만 호출당 느립니다. 빠른 자동화엔 **codex 권장**.
+- ⚠️ **프라이버시**: LLM 기능 사용 시 문서 **메타데이터(제목·태그·카테고리)**가 모델 제공자로 전송됩니다(본문은 전송하지 않음).
+
 ## 뷰어
 
 ```bash
