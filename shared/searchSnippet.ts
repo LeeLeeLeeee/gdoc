@@ -22,3 +22,26 @@ export function contentSnippet(
   const core = text.slice(start, end).replace(/\s+/g, ' ').trim();
   return `${start > 0 ? '…' : ''}${core}${end < text.length ? '…' : ''}`;
 }
+
+/**
+ * Relevance score for ranking search results (0 = no match). A title hit dominates
+ * (so title matches rank first), then content matches add by occurrence count, with a
+ * small bonus for an earlier first match. Case-insensitive; `text` may be empty.
+ */
+export function searchScore(title: string, text: string, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+
+  let score = 0;
+  const t = title.toLowerCase();
+  if (t.includes(q)) score += t === q ? 1100 : 1000;
+
+  const lower = text.toLowerCase();
+  let count = 0;
+  for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, i + q.length)) count++;
+  if (count > 0) {
+    score += count;
+    score += Math.max(0, 1 - lower.indexOf(q) / Math.max(1, lower.length)); // earlier = slightly higher
+  }
+  return score;
+}

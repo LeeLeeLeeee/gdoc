@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { contentSnippet } from './searchSnippet';
+import { contentSnippet, searchScore } from './searchSnippet';
 
 describe('contentSnippet', () => {
   it('returns null when the query is not found', () => {
@@ -52,5 +52,36 @@ describe('contentSnippet', () => {
     const s = contentSnippet(text, 'needle', { radius: 5 })!;
     const core = s.replace(/…/g, '');
     expect(core.length).toBeLessThanOrEqual(5 + 'needle'.length + 5);
+  });
+});
+
+describe('searchScore', () => {
+  it('scores 0 for an empty query', () => {
+    expect(searchScore('title', 'body text', '')).toBe(0);
+  });
+
+  it('scores 0 when the query is in neither title nor body', () => {
+    expect(searchScore('cats', 'about dogs', 'fish')).toBe(0);
+  });
+
+  it('ranks a title match above a content-only match', () => {
+    const titleHit = searchScore('React Query guide', 'unrelated body', 'react');
+    const contentHit = searchScore('Misc note', 'a note about react internals', 'react');
+    expect(titleHit).toBeGreaterThan(contentHit);
+    expect(contentHit).toBeGreaterThan(0);
+  });
+
+  it('ranks more occurrences higher', () => {
+    const once = searchScore('x', 'react is here', 'react');
+    const thrice = searchScore('x', 'react react react', 'react');
+    expect(thrice).toBeGreaterThan(once);
+  });
+
+  it('is case-insensitive', () => {
+    expect(searchScore('x', 'React', 'react')).toBeGreaterThan(0);
+  });
+
+  it('matches Korean content', () => {
+    expect(searchScore('메모', '리액트 쿼리 캐싱 정리', '캐싱')).toBeGreaterThan(0);
   });
 });

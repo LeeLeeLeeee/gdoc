@@ -49,11 +49,17 @@ async function loadSearchIndex(sb: SB): Promise<SearchIndex> {
   }
 }
 
-/** Download a doc's HTML and reduce it to embedding text. */
-async function docText(sb: SB, d: Doc): Promise<string> {
+/** Search index keeps far more text than the embedding model needs, so long docs
+ *  are searchable end-to-end (embeddings stay token-limited at extractText's default). */
+const SEARCH_MAX = 50_000;
+
+/** Download a doc's HTML once → two texts: short for the embedding model, long for search. */
+async function docTexts(sb: SB, d: Doc): Promise<{ embed: string; search: string }> {
   const { data, error } = await sb.storage.from(d.bucket).download(d.storageKey);
   if (error || !data) throw new Error(`download ${d.bucket}/${d.storageKey}: ${error?.message ?? 'no data'}`);
-  return extractText(await data.text(), { title: d.title, tags: d.tags, category: d.category });
+  const html = await data.text();
+  const meta = { title: d.title, tags: d.tags, category: d.category };
+  return { embed: extractText(html, meta), search: extractText(html, meta, SEARCH_MAX) };
 }
 
 async function putJson(sb: SB, path: string, body: string) {
@@ -73,7 +79,7 @@ async function putJson(sb: SB, path: string, body: string) {
  * Outputs (owner-only, private bucket): graph/graph.json, graph/embeddings.json cache,
  * graph/search-index.json (doc id → plain text, for viewer content search).
  */
-export async function analyze() {
+export async function analyze(opts: { rebuild?: boolean } = {}) {
   const sb = client();
   const docs = await fetchDocs(sb);
   if (docs.length === 0) {
@@ -83,10 +89,12 @@ export async function analyze() {
 
   const cache = await loadCache(sb);
   const plan = planEmbeddings(docs.map((d) => ({ id: d.id, contentHash: d.contentHash })), cache, EMBED_MODEL);
-  const searchIndex = await loadSearchIndex(sb);
+  // --rebuild forces every doc's search text to be re-extracted (e.g. after the search
+  // cap changed); otherwise the index is updated incrementally.
+  const searchIndex = opts.rebuild ? {} : await loadSearchIndex(sb);
 
   // Text to (re)fetch: docs being embedded (new/changed) + any not yet in the search
-  // index (first-time backfill). Reused, already-indexed docs are skipped.
+  // index (first-time backfill / rebuild). Reused, already-indexed docs are skipped.
   const needTextIds = new Set<string>(plan.toEmbed);
   for (const d of docs) if (!(d.id in searchIndex)) needTextIds.add(d.id);
   const needText = docs.filter((d) => needTextIds.has(d.id));
@@ -96,12 +104,19 @@ export async function analyze() {
     return;
   }
 
-  const textById: Record<string, string> = {};
-  await Promise.all(needText.map(async (d) => { textById[d.id] = await docText(sb, d); }));
+  const embedTextById: Record<string, string> = {};
+  const searchTextById: Record<string, string> = {};
+  await Promise.all(
+    needText.map(async (d) => {
+      const t = await docTexts(sb, d);
+      embedTextById[d.id] = t.embed;
+      searchTextById[d.id] = t.search;
+    }),
+  );
 
-  // Search index: refreshed incrementally (cheap; powers viewer content search).
+  // Search index: full-text (large cap), refreshed incrementally.
   const fresh: Record<string, string> = {};
-  for (const d of needText) fresh[d.id] = textById[d.id];
+  for (const d of needText) fresh[d.id] = searchTextById[d.id];
   const nextIndex = mergeSearchIndex(searchIndex, fresh, plan.removed);
   await putJson(sb, 'graph/search-index.json', JSON.stringify(nextIndex));
 
@@ -112,7 +127,7 @@ export async function analyze() {
       `임베딩 ${toEmbed.length}개 (재사용 ${Object.keys(plan.reuse).length}` +
         `${plan.removed.length ? `, 삭제 ${plan.removed.length}` : ''})…`,
     );
-    const vectors = await embedTexts(toEmbed.map((d) => textById[d.id]));
+    const vectors = await embedTexts(toEmbed.map((d) => embedTextById[d.id]));
     const vectorsById: Record<string, number[]> = { ...plan.reuse };
     toEmbed.forEach((d, i) => (vectorsById[d.id] = vectors[i]));
 

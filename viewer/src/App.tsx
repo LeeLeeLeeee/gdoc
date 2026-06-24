@@ -4,7 +4,7 @@ import { CardView } from './CardView';
 import { useDocs } from './useDocs';
 import { useDocHtml } from './useDocHtml';
 import { useSearchIndex } from './useSearchIndex';
-import { contentSnippet } from '../../shared/searchSnippet';
+import { contentSnippet, searchScore } from '../../shared/searchSnippet';
 import { useSession } from './auth';
 import { AuthBar } from './AuthBar';
 import { LoginModal } from './LoginModal';
@@ -61,27 +61,31 @@ export default function App() {
     const m = q.trim().toLowerCase();
     const n = name.trim().toLowerCase();
     const snips: Record<string, string> = {};
-    const filtered = docs.filter((d) => {
+    const scored: { d: DocSummary; score: number }[] = [];
+    for (const d of docs) {
       const metaOk =
         !m ||
         d.title.toLowerCase().includes(m) ||
         d.category.toLowerCase().includes(m) ||
         d.type.toLowerCase().includes(m) ||
         d.tags.some((t) => t.toLowerCase().includes(m));
-      if (!metaOk) return false;
-      if (!n) return true;
-      if (d.title.toLowerCase().includes(n)) return true;
-      const text = searchIndex?.[d.id];
-      if (text) {
-        const snip = contentSnippet(text, n);
-        if (snip) {
-          snips[d.id] = snip;
-          return true;
-        }
+      if (!metaOk) continue;
+      if (!n) {
+        scored.push({ d, score: 0 });
+        continue;
       }
-      return false;
-    });
-    return { visible: sortDocs(filtered, sortKey, sortDir), snippets: snips };
+      const text = searchIndex?.[d.id] ?? '';
+      const score = searchScore(d.title, text, n);
+      if (score === 0) continue;
+      const snip = contentSnippet(text, n);
+      if (snip) snips[d.id] = snip;
+      scored.push({ d, score });
+    }
+    // With a search term, rank by relevance; otherwise honor the sort control.
+    const list = n
+      ? scored.sort((a, b) => b.score - a.score).map((s) => s.d)
+      : sortDocs(scored.map((s) => s.d), sortKey, sortDir);
+    return { visible: list, snippets: snips };
   }, [docs, q, name, sortKey, sortDir, searchIndex]);
 
   // render via a real blob: URL rather than srcDoc, so the doc's own #anchor TOC links

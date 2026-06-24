@@ -95,7 +95,7 @@ async function runUpload(target: string, autoPath: boolean) {
 async function main() {
   const args = process.argv.slice(2);
   if (args[0] === 'analyze') {
-    await analyze();
+    await analyze({ rebuild: args.includes('--rebuild') });
     return;
   }
   if (args[0] === 'doctor') {
