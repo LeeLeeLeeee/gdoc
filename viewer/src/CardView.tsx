@@ -31,6 +31,7 @@ function Highlight({ text, highlight }: { text: string; highlight: HighlightConf
 export function CardView({
   docs,
   terms,
+  snippets,
   selectedPath,
   loadingPath,
   now,
@@ -39,6 +40,7 @@ export function CardView({
 }: {
   docs: DocSummary[];
   terms: string[];
+  snippets?: Record<string, string>;
   selectedPath?: string;
   loadingPath?: string;
   now: number;
@@ -82,6 +84,9 @@ export function CardView({
                   <span className="relative-time" title={`업데이트 ${d.updatedAt}`}>{formatRelativeUpdatedAt(d.updatedAt, now)}</span>
                   {d.visibility === 'private' && <span className="tag" style={{ color: 'var(--amber-500)' }}>비공개</span>}
                 </div>
+                {snippets?.[d.id] && (
+                  <div className="card-snippet"><Highlight text={snippets[d.id]} highlight={highlight} /></div>
+                )}
                 <div className="card-tags">
                   <span className="tag type">{d.type}</span>
                   {d.tags.map((t) => <span className="tag" key={t}>#{t}</span>)}

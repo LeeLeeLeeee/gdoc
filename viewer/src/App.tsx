@@ -3,6 +3,8 @@ import { FileTree } from './FileTree';
 import { CardView } from './CardView';
 import { useDocs } from './useDocs';
 import { useDocHtml } from './useDocHtml';
+import { useSearchIndex } from './useSearchIndex';
+import { contentSnippet } from '../../shared/searchSnippet';
 import { useSession } from './auth';
 import { AuthBar } from './AuthBar';
 import { LoginModal } from './LoginModal';
@@ -50,12 +52,15 @@ export default function App() {
   const [selected, setSelected] = useState<DocSummary | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const { docHtml, loadError, retry } = useDocHtml(selected);
+  const { index: searchIndex } = useSearchIndex(session, ready);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
-  // meta filter AND name search, then sort
-  const visible = useMemo(() => {
+  // meta filter AND search (title OR content), then sort. Content matches produce a
+  // snippet for the card view; falls back to title-only when no index is loaded.
+  const { visible, snippets } = useMemo(() => {
     const m = q.trim().toLowerCase();
     const n = name.trim().toLowerCase();
+    const snips: Record<string, string> = {};
     const filtered = docs.filter((d) => {
       const metaOk =
         !m ||
@@ -63,11 +68,21 @@ export default function App() {
         d.category.toLowerCase().includes(m) ||
         d.type.toLowerCase().includes(m) ||
         d.tags.some((t) => t.toLowerCase().includes(m));
-      const nameOk = !n || d.title.toLowerCase().includes(n);
-      return metaOk && nameOk;
+      if (!metaOk) return false;
+      if (!n) return true;
+      if (d.title.toLowerCase().includes(n)) return true;
+      const text = searchIndex?.[d.id];
+      if (text) {
+        const snip = contentSnippet(text, n);
+        if (snip) {
+          snips[d.id] = snip;
+          return true;
+        }
+      }
+      return false;
     });
-    return sortDocs(filtered, sortKey, sortDir);
-  }, [docs, q, name, sortKey, sortDir]);
+    return { visible: sortDocs(filtered, sortKey, sortDir), snippets: snips };
+  }, [docs, q, name, sortKey, sortDir, searchIndex]);
 
   // render via a real blob: URL rather than srcDoc, so the doc's own #anchor TOC links
   // scroll within the document instead of navigating to about:srcdoc#… (which blanks it)
@@ -157,7 +172,7 @@ export default function App() {
             <>
               <div className="field">
                 <span className="ico"><Search /></span>
-                <input className="gd-input" style={{ height: 34 }} placeholder="이름으로 검색" value={name} onChange={(e) => setName(e.target.value)} />
+                <input className="gd-input" style={{ height: 34 }} placeholder="제목·내용 검색" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               {hasFilter && (
                 <div className="chips">
@@ -165,7 +180,7 @@ export default function App() {
                     <span className="chip">메타: {q.trim()} <button onClick={() => setQ('')}><X size={11} /></button></span>
                   )}
                   {name.trim() && (
-                    <span className="chip">이름: {name.trim()} <button onClick={() => setName('')}><X size={11} /></button></span>
+                    <span className="chip">검색: {name.trim()} <button onClick={() => setName('')}><X size={11} /></button></span>
                   )}
                   <span className="count">{visible.length}개 결과 · AND</span>
                 </div>
@@ -185,7 +200,7 @@ export default function App() {
             view === 'tree' ? (
               <FileTree docs={visible} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} />
             ) : (
-              <CardView docs={visible} terms={filterTerms} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} filtered={hasFilter} />
+              <CardView docs={visible} terms={filterTerms} snippets={snippets} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} filtered={hasFilter} />
             )
           ) : (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>

@@ -1,12 +1,14 @@
 #!/usr/bin/env bun
 // gdoc upload <file|dir> [--auto-path]  — publish generated HTML to Supabase
-// gdoc analyze                          — build the knowledge graph
+// gdoc analyze                          — build the knowledge graph + search index
+// gdoc doctor                           — preflight the setup (env, DB, buckets, node)
 // Run with bun (auto-loads .env): `bun run cli/index.ts upload docs --auto-path`
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createSupabasePorts } from './supabase';
 import { uploadDoc, type UploadCtx } from './upload';
 import { analyze } from './analyze';
+import { doctor } from './doctor';
 import { runEngine } from './llm';
 import type { GdocMeta } from '../shared/schema';
 
@@ -94,6 +96,10 @@ async function main() {
   const args = process.argv.slice(2);
   if (args[0] === 'analyze') {
     await analyze();
+    return;
+  }
+  if (args[0] === 'doctor') {
+    await doctor();
     return;
   }
   const autoPath = args.includes('--auto-path');
