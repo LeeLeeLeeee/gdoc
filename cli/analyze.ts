@@ -11,7 +11,11 @@ type Doc = DocSummary & { contentHash: string };
 function client() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) {
+    console.error('문제: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 가 없습니다.');
+    console.error('해결: .env를 채우고 `bun run gdoc doctor`로 점검하세요.');
+    process.exit(1);
+  }
   return createClient(url, key, { auth: { persistSession: false } });
 }
 type SB = ReturnType<typeof client>;

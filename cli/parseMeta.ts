@@ -2,7 +2,7 @@ import { gdocMetaSchema, type GdocMeta } from '../shared/schema';
 
 export type ParseResult =
   | { status: 'ok'; meta: GdocMeta }
-  | { status: 'skip'; reason: 'no-meta-block' | 'invalid-json' };
+  | { status: 'skip'; reason: 'no-meta-block' | 'invalid-json'; detail?: string };
 
 const META_BLOCK = /<script[^>]*\bid=["']gdoc-meta["'][^>]*>([\s\S]*?)<\/script>/i;
 
@@ -18,8 +18,8 @@ export function parseMeta(html: string): ParseResult {
   let raw: unknown;
   try {
     raw = JSON.parse(match[1]);
-  } catch {
-    return { status: 'skip', reason: 'invalid-json' };
+  } catch (e) {
+    return { status: 'skip', reason: 'invalid-json', detail: (e as Error).message };
   }
 
   return { status: 'ok', meta: gdocMetaSchema.parse(raw) };

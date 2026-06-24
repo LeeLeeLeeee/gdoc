@@ -92,6 +92,14 @@ describe('uploadDoc', () => {
     expect(db.rows).toHaveLength(0);
   });
 
+  it('dry-run: classifies but writes nothing to storage or db', async () => {
+    const { storage, db } = makeFakes();
+    const out = await uploadDoc(html(), { storage, db }, { ...emptyCtx(), dryRun: true });
+    expect(out.status).toBe('new');
+    expect(storage.calls).toHaveLength(0);
+    expect(db.rows).toHaveLength(0);
+  });
+
   it('auto-path: uses the assignPath result when no path is authored', async () => {
     const { storage, db } = makeFakes();
     const ctx: UploadCtx = {

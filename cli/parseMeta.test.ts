@@ -29,9 +29,13 @@ describe('parseMeta', () => {
     expect(result).toEqual({ status: 'skip', reason: 'no-meta-block' });
   });
 
-  it('skips when the block contains malformed JSON', () => {
+  it('skips when the block contains malformed JSON, with a reason detail', () => {
     const result = parseMeta(metaBlock('{ not: valid json, }'));
-    expect(result).toEqual({ status: 'skip', reason: 'invalid-json' });
+    expect(result.status).toBe('skip');
+    if (result.status === 'skip') {
+      expect(result.reason).toBe('invalid-json');
+      expect(result.detail).toBeTruthy();
+    }
   });
 
   it('throws when JSON is valid but a required field is missing', () => {

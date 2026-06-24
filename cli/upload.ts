@@ -14,11 +14,12 @@ export interface UploadCtx {
   autoPath?: boolean;
   folders?: string[]; // existing folder paths (context for the LLM)
   assignPath?: (meta: GdocMeta, folders: string[]) => Promise<string | null>;
+  dryRun?: boolean; // classify + report, but never write to storage/db
 }
 
 export type UploadOutcome =
   | { status: UploadStatus; id: string; bucket: Bucket; key: string }
-  | { status: 'skip'; reason: 'no-meta-block' | 'invalid-json' };
+  | { status: 'skip'; reason: 'no-meta-block' | 'invalid-json'; detail?: string };
 
 /**
  * Upload one document. Resolves the folder path (authored → LLM auto-path → default),
@@ -46,6 +47,9 @@ export async function uploadDoc(html: string, ports: UploadPorts, ctx: UploadCtx
   if (status === 'unchanged' || status === 'duplicate') {
     return { status, id, bucket, key };
   }
+
+  // dry-run: report what would be written, then stop before any storage/db mutation.
+  if (ctx.dryRun) return { status, id, bucket, key };
 
   await ports.storage.upload(bucket, key, html, 'text/html; charset=utf-8');
   await ports.db.upsert({
