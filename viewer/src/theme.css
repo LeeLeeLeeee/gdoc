@@ -118,6 +118,17 @@ body { font-family: var(--font-sans); font-size: 14px; color: var(--text-default
   border-radius: var(--radius-md); outline: none; transition: border-color var(--dur), box-shadow var(--dur); }
 .gd-input::placeholder { color: var(--text-faint); }
 .gd-input:focus { border-color: var(--border-focus); box-shadow: var(--ring); }
+/* search box status: typing dots while debouncing, a check when results settle */
+.field .search-status { position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; pointer-events: none; }
+.search-status.typing { gap: 3px; }
+.search-status.typing i { width: 4px; height: 4px; border-radius: 50%; background: var(--text-faint);
+  animation: gd-typing 1s infinite ease-in-out; }
+.search-status.typing i:nth-child(2) { animation-delay: .15s; }
+.search-status.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes gd-typing { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.search-status.done { color: #2fd07a; animation: gd-check-pop .22s ease-out; }
+@keyframes gd-check-pop { from { opacity: 0; transform: translateY(-50%) scale(.5); } to { opacity: 1; transform: translateY(-50%) scale(1); } }
 
 /* ---- eyebrow / doc header row ---- */
 .doc-controls { padding: 14px 14px 8px; display: flex; flex-direction: column; gap: 10px; }

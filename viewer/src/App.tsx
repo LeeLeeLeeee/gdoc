@@ -12,7 +12,7 @@ import { SortControl } from './SortControl';
 import { formatUpdatedAt } from './dateFormat';
 import { sortDocs, type SortKey, type SortDir } from '../../shared/sortDocs';
 import type { DocSummary } from '../../shared/buildTree';
-import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh } from './icons';
+import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check } from './icons';
 
 const loadGraphView = () => import('./GraphView').then((m) => ({ default: m.GraphView }));
 const GraphView = lazy(loadGraphView);
@@ -43,7 +43,9 @@ export default function App() {
   const now = useNow();
 
   const [q, setQ] = useState(''); // meta filter
-  const [name, setName] = useState(''); // name search
+  const [name, setName] = useState(''); // search input (updates immediately)
+  const [debouncedName, setDebouncedName] = useState(''); // applied after a short pause
+  const [searchState, setSearchState] = useState<'idle' | 'typing' | 'done'>('idle');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [view, setView] = useState<'tree' | 'card' | 'graph'>('tree');
@@ -55,11 +57,33 @@ export default function App() {
   const { index: searchIndex } = useSearchIndex(session, ready);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
+  // Debounce the search box: while typing, show a "typing" indicator; once settled,
+  // apply the term and flash a "done" check that fades after a moment.
+  useEffect(() => {
+    if (name === debouncedName) return;
+    setSearchState('typing');
+    const id = window.setTimeout(() => {
+      setDebouncedName(name);
+      setSearchState(name.trim() ? 'done' : 'idle');
+    }, 220);
+    return () => window.clearTimeout(id);
+  }, [name, debouncedName]);
+  useEffect(() => {
+    if (searchState !== 'done') return;
+    const id = window.setTimeout(() => setSearchState('idle'), 1200);
+    return () => window.clearTimeout(id);
+  }, [searchState]);
+  const clearSearch = useCallback(() => {
+    setName('');
+    setDebouncedName('');
+    setSearchState('idle');
+  }, []);
+
   // meta filter AND search (title OR content), then sort. Content matches produce a
   // snippet for the card view; falls back to title-only when no index is loaded.
   const { visible, snippets } = useMemo(() => {
     const m = q.trim().toLowerCase();
-    const n = name.trim().toLowerCase();
+    const n = debouncedName.trim().toLowerCase();
     const snips: Record<string, string> = {};
     const scored: { d: DocSummary; score: number }[] = [];
     for (const d of docs) {
@@ -86,7 +110,7 @@ export default function App() {
       ? scored.sort((a, b) => b.score - a.score).map((s) => s.d)
       : sortDocs(scored.map((s) => s.d), sortKey, sortDir);
     return { visible: list, snippets: snips };
-  }, [docs, q, name, sortKey, sortDir, searchIndex]);
+  }, [docs, q, debouncedName, sortKey, sortDir, searchIndex]);
 
   // render via a real blob: URL rather than srcDoc, so the doc's own #anchor TOC links
   // scroll within the document instead of navigating to about:srcdoc#… (which blanks it)
@@ -101,14 +125,14 @@ export default function App() {
   const [frameReady, setFrameReady] = useState(false);
   useEffect(() => { setFrameReady(false); }, [blobUrl]);
 
-  const hasFilter = q.trim() !== '' || name.trim() !== '';
+  const hasFilter = q.trim() !== '' || debouncedName.trim() !== '';
   const countLabel = !ready ? '문서' : session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
   const crumb = selected ? selected.path.split('/').slice(0, -1).join(' / ') : '';
   const docLoading = !!selected && docHtml === null && !loadError;
   const loadingPath = docLoading && selected ? selected.path : undefined;
   // mobile: single column — show the list, or the detail (a doc / the graph)
   const mobileScreen = view === 'graph' || selected ? 'show-detail' : 'show-list';
-  const filterTerms = useMemo(() => [q, name], [q, name]);
+  const filterTerms = useMemo(() => [q, debouncedName], [q, debouncedName]);
   const showGraph = useCallback(() => {
     preloadGraphView();
     setView('graph');
@@ -176,15 +200,21 @@ export default function App() {
             <>
               <div className="field">
                 <span className="ico"><Search /></span>
-                <input className="gd-input" style={{ height: 34 }} placeholder="제목·내용 검색" value={name} onChange={(e) => setName(e.target.value)} />
+                <input className="gd-input" style={{ height: 34, paddingRight: 32 }} placeholder="제목·내용 검색" value={name} onChange={(e) => setName(e.target.value)} />
+                {searchState === 'typing' && (
+                  <span className="search-status typing" aria-hidden="true"><i /><i /><i /></span>
+                )}
+                {searchState === 'done' && (
+                  <span className="search-status done" aria-label="검색 완료"><Check size={13} /></span>
+                )}
               </div>
               {hasFilter && (
                 <div className="chips">
                   {q.trim() && (
                     <span className="chip">메타: {q.trim()} <button onClick={() => setQ('')}><X size={11} /></button></span>
                   )}
-                  {name.trim() && (
-                    <span className="chip">검색: {name.trim()} <button onClick={() => setName('')}><X size={11} /></button></span>
+                  {debouncedName.trim() && (
+                    <span className="chip">검색: {debouncedName.trim()} <button onClick={clearSearch}><X size={11} /></button></span>
                   )}
                   <span className="count">{visible.length}개 결과 · AND</span>
                 </div>
