@@ -44,6 +44,15 @@ export const Logout = ({ size = 13, color }: P) => (
 export const Alert = ({ size = 28, color }: P) => (
   <svg {...s(size)} {...stroke(color)}><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
 );
+export const Sun = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>
+);
+export const Moon = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M20.9 13.5A8.5 8.5 0 1 1 10.5 3.1 6.5 6.5 0 0 0 20.9 13.5Z" /></svg>
+);
+export const Refresh = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M21 12a9 9 0 0 1-15.5 6.2" /><path d="M3 12A9 9 0 0 1 18.5 5.8" /><path d="M18 2v4h-4" /><path d="M6 22v-4h4" /></svg>
+);
 export const Up = ({ size = 12, color }: P) => (
   <svg {...s(size)} {...stroke(color)}><path d="m3 8 4-4 4 4" /><path d="M7 4v16" /></svg>
 );

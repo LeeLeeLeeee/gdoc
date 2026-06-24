@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { uploadDoc, type UploadCtx } from './upload';
 import { contentHash, storageKey } from './classify';
 import { slugFromPath } from '../shared/schema';
-import type { StoragePort, DbPort } from './ports';
+import type { StoragePort, DbPort, DocumentRow } from './ports';
 
 const html = (extra: Record<string, unknown> = {}) =>
   `<html><head><script type="application/json" id="gdoc-meta">${JSON.stringify({
@@ -26,14 +26,14 @@ function makeFakes() {
   } satisfies StoragePort & { calls: { bucket: string; key: string }[] };
 
   const db = {
-    rows: [] as Record<string, unknown>[],
-    async upsert(row: Record<string, unknown>) {
+    rows: [] as DocumentRow[],
+    async upsert(row: DocumentRow) {
       this.rows.push(row);
     },
     async listExisting() {
       return [];
     },
-  } satisfies DbPort & { rows: Record<string, unknown>[] };
+  } satisfies DbPort & { rows: DocumentRow[] };
 
   return { storage, db };
 }
@@ -86,7 +86,7 @@ describe('uploadDoc', () => {
   });
 
   it('does NOT write the db row if storage upload fails (storage-first order)', async () => {
-    const db = { rows: [] as Record<string, unknown>[], async upsert(r: Record<string, unknown>) { this.rows.push(r); }, async listExisting() { return []; } };
+    const db = { rows: [] as DocumentRow[], async upsert(r: DocumentRow) { this.rows.push(r); }, async listExisting() { return []; } };
     const storage: StoragePort = { async upload() { throw new Error('network down'); } };
     await expect(uploadDoc(html(), { storage, db }, emptyCtx())).rejects.toThrow('network down');
     expect(db.rows).toHaveLength(0);
@@ -99,6 +99,7 @@ describe('uploadDoc', () => {
       assignPath: async () => 'auto/assigned/here',
     };
     const out = await uploadDoc(html({ path: undefined }), { storage, db }, ctx);
+    if (out.status === 'skip') throw new Error(`expected upload, got skip: ${out.reason}`);
     expect(out.id).toBe('auto/assigned/here');
   });
 });

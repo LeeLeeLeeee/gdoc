@@ -5,6 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p viewer/tsconfig.json --noEmit && vitest run",
     "gdoc": "bun run cli/index.ts"
   },
   "dependencies": {

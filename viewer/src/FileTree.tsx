@@ -12,13 +12,15 @@ export function FileTree({
   docs,
   selectedPath,
   loadingPath,
+  now,
   onSelect,
 }: {
   docs: DocSummary[];
   selectedPath?: string;
   loadingPath?: string;
+  now: number;
   onSelect: (doc: DocSummary) => void;
 }) {
   const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false })), [docs]);
-  return <TreeView nodes={tree} selectedPath={selectedPath} loadingPath={loadingPath} onSelect={onSelect} />;
+  return <TreeView nodes={tree} selectedPath={selectedPath} loadingPath={loadingPath} now={now} onSelect={onSelect} />;
 }

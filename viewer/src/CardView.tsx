@@ -1,18 +1,23 @@
+import { useMemo } from 'react';
 import type { DocSummary } from '../../shared/buildTree';
+import { formatRelativeUpdatedAt } from './dateFormat';
 import { File } from './icons';
 
 function escapeReg(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function Highlight({ text, terms }: { text: string; terms: string[] }) {
-  const ts = terms.map((t) => t.trim()).filter(Boolean);
-  if (!ts.length) return <>{text}</>;
-  const re = new RegExp(`(${ts.map(escapeReg).join('|')})`, 'gi');
+type HighlightConfig = {
+  re: RegExp;
+  terms: Set<string>;
+};
+
+function Highlight({ text, highlight }: { text: string; highlight: HighlightConfig | null }) {
+  if (!highlight) return <>{text}</>;
   return (
     <>
-      {text.split(re).map((p, i) =>
-        ts.some((t) => t.toLowerCase() === p.toLowerCase()) ? (
+      {text.split(highlight.re).map((p, i) =>
+        highlight.terms.has(p.toLowerCase()) ? (
           <mark key={i} className="hl">{p}</mark>
         ) : (
           <span key={i}>{p}</span>
@@ -28,6 +33,7 @@ export function CardView({
   terms,
   selectedPath,
   loadingPath,
+  now,
   onSelect,
   filtered,
 }: {
@@ -35,15 +41,32 @@ export function CardView({
   terms: string[];
   selectedPath?: string;
   loadingPath?: string;
+  now: number;
   onSelect: (d: DocSummary) => void;
   filtered: boolean;
 }) {
-  const groups: { label: string; items: DocSummary[] }[] = [];
-  for (const d of docs) {
-    const label = d.path.split('/').slice(0, -1).join(' / ') || '문서';
-    const g = groups.find((x) => x.label === label) ?? (groups.push({ label, items: [] }), groups[groups.length - 1]);
-    g.items.push(d);
-  }
+  const highlight = useMemo(() => {
+    const ts = terms.map((t) => t.trim()).filter(Boolean);
+    if (!ts.length) return null;
+    return {
+      re: new RegExp(`(${ts.map(escapeReg).join('|')})`, 'gi'),
+      terms: new Set(ts.map((t) => t.toLowerCase())),
+    };
+  }, [terms]);
+
+  const groups = useMemo(() => {
+    const byLabel = new Map<string, { label: string; items: DocSummary[] }>();
+    for (const d of docs) {
+      const label = d.path.split('/').slice(0, -1).join(' / ') || '문서';
+      const group = byLabel.get(label);
+      if (group) {
+        group.items.push(d);
+      } else {
+        byLabel.set(label, { label, items: [d] });
+      }
+    }
+    return [...byLabel.values()];
+  }, [docs]);
 
   return (
     <div className="cards-wrap">
@@ -55,7 +78,8 @@ export function CardView({
               <div key={d.id} className={`card${d.path === selectedPath ? ' sel' : ''}${d.path === loadingPath ? ' loading' : ''}`} onClick={() => onSelect(d)}>
                 <div className="card-title">
                   <File size={14} color="var(--text-faint)" />
-                  <span style={{ flex: 1, minWidth: 0 }}><Highlight text={d.title} terms={terms} /></span>
+                  <span style={{ flex: 1, minWidth: 0 }}><Highlight text={d.title} highlight={highlight} /></span>
+                  <span className="relative-time" title={`업데이트 ${d.updatedAt}`}>{formatRelativeUpdatedAt(d.updatedAt, now)}</span>
                   {d.visibility === 'private' && <span className="tag" style={{ color: 'var(--amber-500)' }}>비공개</span>}
                 </div>
                 <div className="card-tags">

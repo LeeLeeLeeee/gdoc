@@ -1,32 +1,56 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileTree } from './FileTree';
 import { CardView } from './CardView';
-import { GraphView } from './GraphView';
 import { useDocs } from './useDocs';
+import { useDocHtml } from './useDocHtml';
 import { useSession } from './auth';
 import { AuthBar } from './AuthBar';
 import { LoginModal } from './LoginModal';
 import { SortControl } from './SortControl';
-import { docUrl } from './supabase';
+import { formatUpdatedAt } from './dateFormat';
 import { sortDocs, type SortKey, type SortDir } from '../../shared/sortDocs';
 import type { DocSummary } from '../../shared/buildTree';
-import { Logo, Search, Filter, X, Alert } from './icons';
+import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh } from './icons';
+
+const loadGraphView = () => import('./GraphView').then((m) => ({ default: m.GraphView }));
+const GraphView = lazy(loadGraphView);
+const preloadGraphView = () => {
+  void loadGraphView();
+};
+
+type ThemeMode = 'dark' | 'light';
+const THEME_STORAGE_KEY = 'gdoc-theme';
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'dark';
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark';
+}
+
+function useNow() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
 
 export default function App() {
-  const { session } = useSession();
-  const { docs, loading, error } = useDocs(session?.user?.id ?? null);
+  const { session, ready } = useSession();
+  const { docs, loading, error, refetch: refetchDocs } = useDocs(session?.user?.id ?? null, ready);
+  const now = useNow();
 
   const [q, setQ] = useState(''); // meta filter
   const [name, setName] = useState(''); // name search
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [view, setView] = useState<'tree' | 'card' | 'graph'>('tree');
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
 
   const [selected, setSelected] = useState<DocSummary | null>(null);
-  const [docHtml, setDocHtml] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [reload, setReload] = useState(0);
   const [showLogin, setShowLogin] = useState(false);
+  const { docHtml, loadError, retry } = useDocHtml(selected);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   // meta filter AND name search, then sort
   const visible = useMemo(() => {
@@ -45,32 +69,6 @@ export default function App() {
     return sortDocs(filtered, sortKey, sortDir);
   }, [docs, q, name, sortKey, sortDir]);
 
-  // load selected doc into the iframe (fetch text → blob URL; Supabase serves HTML as text/plain)
-  useEffect(() => {
-    let cancelled = false;
-    if (!selected) {
-      setDocHtml(null);
-      setLoadError(false);
-      return;
-    }
-    setDocHtml(null);
-    setLoadError(false);
-    docUrl(selected)
-      .then((url) => fetch(url))
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
-      .then((html) => !cancelled && setDocHtml(html))
-      .catch((e) => {
-        console.error(e);
-        if (!cancelled) setLoadError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, reload]);
-
   // render via a real blob: URL rather than srcDoc, so the doc's own #anchor TOC links
   // scroll within the document instead of navigating to about:srcdoc#… (which blanks it)
   const blobUrl = useMemo(
@@ -85,20 +83,47 @@ export default function App() {
   useEffect(() => { setFrameReady(false); }, [blobUrl]);
 
   const hasFilter = q.trim() !== '' || name.trim() !== '';
-  const countLabel = session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
+  const countLabel = !ready ? '문서' : session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
   const crumb = selected ? selected.path.split('/').slice(0, -1).join(' / ') : '';
   const docLoading = !!selected && docHtml === null && !loadError;
   const loadingPath = docLoading && selected ? selected.path : undefined;
   // mobile: single column — show the list, or the detail (a doc / the graph)
   const mobileScreen = view === 'graph' || selected ? 'show-detail' : 'show-list';
+  const filterTerms = useMemo(() => [q, name], [q, name]);
+  const showGraph = useCallback(() => {
+    preloadGraphView();
+    setView('graph');
+  }, []);
+  const selectGraphDoc = useCallback((d: DocSummary) => {
+    setSelected(d);
+    setView('tree');
+  }, []);
+  const sendThemeToFrame = useCallback(() => {
+    frameRef.current?.contentWindow?.postMessage({ type: 'set-theme', theme }, '*');
+  }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    sendThemeToFrame();
+  }, [sendThemeToFrame, theme]);
 
   return (
-    <div className={`app ${mobileScreen}`}>
+    <div className={`app ${mobileScreen}`} data-theme={theme}>
       <aside className="sidebar">
         <div className="side-head">
           <div className="brand">
             <Logo size={20} />
             <span className="brand-name">Trove</span>
+          </div>
+          <div className="theme-toggle" aria-label="테마 선택">
+            <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title="다크 모드">
+              <Moon size={13} /> 다크
+            </button>
+            <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title="라이트 모드">
+              <Sun size={13} /> 라이트
+            </button>
           </div>
           <AuthBar session={session} onLogin={() => setShowLogin(true)} />
           <div className="field">
@@ -110,12 +135,23 @@ export default function App() {
         <div className="doc-controls">
           <div className="row-between">
             <span className="eyebrow">{countLabel}</span>
-            <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
+            <div className="list-actions">
+              <button
+                className={`icon-btn list-refresh${loading ? ' loading' : ''}`}
+                onClick={refetchDocs}
+                disabled={!ready || loading}
+                aria-label="문서 목록 새로고침"
+                title="문서 목록 새로고침"
+              >
+                <Refresh size={13} />
+              </button>
+              <SortControl sortKey={sortKey} sortDir={sortDir} onChange={(k, d) => { setSortKey(k); setSortDir(d); }} />
+            </div>
           </div>
           <div className="seg">
             <button className={view === 'tree' ? 'on' : ''} onClick={() => setView('tree')}>트리</button>
             <button className={view === 'card' ? 'on' : ''} onClick={() => setView('card')}>카드</button>
-            <button className={view === 'graph' ? 'on' : ''} onClick={() => setView('graph')}>그래프</button>
+            <button className={view === 'graph' ? 'on' : ''} onMouseEnter={preloadGraphView} onFocus={preloadGraphView} onClick={showGraph}>그래프</button>
           </div>
           {view !== 'graph' && (
             <>
@@ -141,15 +177,15 @@ export default function App() {
         <div className="tree">
           {view === 'graph' ? (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>지식 그래프를<br />오른쪽에 표시 중</div>
-          ) : loading ? (
+          ) : !ready || loading ? (
             <div className="center muted" style={{ padding: 24 }}>불러오는 중…</div>
           ) : error ? (
             <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
           ) : visible.length ? (
             view === 'tree' ? (
-              <FileTree docs={visible} selectedPath={selected?.path} loadingPath={loadingPath} onSelect={setSelected} />
+              <FileTree docs={visible} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} />
             ) : (
-              <CardView docs={visible} terms={[q, name]} selectedPath={selected?.path} loadingPath={loadingPath} onSelect={setSelected} filtered={hasFilter} />
+              <CardView docs={visible} terms={filterTerms} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} filtered={hasFilter} />
             )
           ) : (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>
@@ -164,14 +200,33 @@ export default function App() {
           <button className="mobile-back" onClick={() => (view === 'graph' ? setView('tree') : setSelected(null))}>← 목록</button>
         )}
         {view === 'graph' ? (
-          <GraphView session={session} docs={docs} onSelect={(d) => { setSelected(d); setView('tree'); }} />
+          <Suspense fallback={
+            <div className="pane-center">
+              <div className="empty">
+                <div className="spinner" />
+                <div className="sub">그래프 로딩 중…</div>
+              </div>
+            </div>
+          }>
+            <GraphView session={session} docs={docs} onSelect={selectGraphDoc} />
+          </Suspense>
         ) : selected ? (
           <div className="doc-show" key={selected.id}>
             <div className="doc-head">
               <div style={{ flex: 1, minWidth: 0 }}>
                 {crumb && <div className="crumb">{crumb}</div>}
                 <div className="title">{selected.title}</div>
+                <div className="doc-updated">업데이트 {formatUpdatedAt(selected.updatedAt)}</div>
               </div>
+              <button
+                className={`icon-btn doc-refresh${docLoading ? ' loading' : ''}`}
+                onClick={retry}
+                disabled={docLoading}
+                aria-label="문서 새로고침"
+                title="문서 새로고침"
+              >
+                <Refresh size={14} />
+              </button>
               <span className="badge badge-brand">{selected.type}</span>
               <span className={`badge ${selected.visibility === 'private' ? 'badge-amber' : 'badge-neutral'}`}>
                 {selected.visibility === 'private' ? '비공개' : '공개'}
@@ -185,13 +240,23 @@ export default function App() {
                     <div className="title" style={{ color: 'var(--text-strong)' }}>문서를 불러오지 못했습니다</div>
                     <div className="sub">파일이 이동되었거나 접근 권한이 없을 수 있습니다.</div>
                     <div style={{ marginTop: 20 }}>
-                      <button className="btn btn-ghost" onClick={() => setReload((n) => n + 1)}>다시 시도</button>
+                      <button className="btn btn-ghost" onClick={retry}>다시 시도</button>
                     </div>
                   </div>
                 </div>
               ) : docHtml !== null ? (
                 <div className="doc-page" key="page">
-                  <iframe className={`doc-frame${frameReady ? ' ready' : ''}`} title={selected.title} src={blobUrl ?? undefined} onLoad={() => setFrameReady(true)} sandbox="allow-scripts allow-popups allow-same-origin" />
+                  <iframe
+                    ref={frameRef}
+                    className={`doc-frame${frameReady ? ' ready' : ''}`}
+                    title={selected.title}
+                    src={blobUrl ?? undefined}
+                    onLoad={() => {
+                      sendThemeToFrame();
+                      setFrameReady(true);
+                    }}
+                    sandbox="allow-scripts allow-popups allow-same-origin"
+                  />
                 </div>
               ) : (
                 <div className="doc-page msg loading-glow" key="loading">

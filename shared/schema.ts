@@ -14,6 +14,9 @@ export const DOC_TYPES = [
   'index',
 ] as const;
 
+/** Storage bucket = visibility tier: public docs live in the public bucket, private in private. */
+export type Bucket = 'public' | 'private';
+
 export const gdocAssetSchema = z.object({
   src: z.string().min(1),
   url: z.string().url().optional(),

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import type { TreeNode, DocSummary } from '../../shared/buildTree';
+import { formatRelativeUpdatedAt } from './dateFormat';
 import { Folder, File, Chevron, ChevronRight, Lock } from './icons';
 
-type Props = { nodes: TreeNode[]; selectedPath?: string; loadingPath?: string; onSelect: (doc: DocSummary) => void };
+type Props = { nodes: TreeNode[]; selectedPath?: string; loadingPath?: string; now: number; onSelect: (doc: DocSummary) => void };
 
-export function TreeView({ nodes, selectedPath, loadingPath, onSelect }: Props) {
+export function TreeView({ nodes, selectedPath, loadingPath, now, onSelect }: Props) {
   return (
     <div>
       {nodes.map((n) => (
-        <TreeRow key={n.path} node={n} depth={0} selectedPath={selectedPath} loadingPath={loadingPath} onSelect={onSelect} />
+        <TreeRow key={n.path} node={n} depth={0} selectedPath={selectedPath} loadingPath={loadingPath} now={now} onSelect={onSelect} />
       ))}
     </div>
   );
@@ -19,12 +20,14 @@ function TreeRow({
   depth,
   selectedPath,
   loadingPath,
+  now,
   onSelect,
 }: {
   node: TreeNode;
   depth: number;
   selectedPath?: string;
   loadingPath?: string;
+  now: number;
   onSelect: (doc: DocSummary) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -40,7 +43,7 @@ function TreeRow({
         </div>
         {open &&
           node.children.map((c) => (
-            <TreeRow key={c.path} node={c} depth={depth + 1} selectedPath={selectedPath} loadingPath={loadingPath} onSelect={onSelect} />
+            <TreeRow key={c.path} node={c} depth={depth + 1} selectedPath={selectedPath} loadingPath={loadingPath} now={now} onSelect={onSelect} />
           ))}
       </>
     );
@@ -56,6 +59,9 @@ function TreeRow({
     >
       <File size={14} color={sel ? 'var(--blue-300)' : 'var(--text-faint)'} />
       <span className="tname">{node.name}</span>
+      <span className="relative-time" title={`업데이트 ${node.doc.updatedAt}`}>
+        {formatRelativeUpdatedAt(node.doc.updatedAt, now)}
+      </span>
       {node.doc.visibility === 'private' && <Lock size={11} color="var(--amber-500)" />}
     </div>
   );
