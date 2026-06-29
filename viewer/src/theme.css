@@ -579,6 +579,9 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 .hl-menu-btn:hover { color: var(--text-strong); border-color: var(--brand); }
 .hl-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 300px; max-height: 60vh; overflow: auto; padding: 8px; background: var(--surface-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
 .hl-menu .hl-list { flex-direction: column; }
+.seg-primary { margin-bottom: 8px; }
+.sidebar-hl-body { padding-top: 4px; }
+.sidebar-hl-body .hl-list { flex-direction: column; }
 
 .hl-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .hl-list.compact { align-items: center; }

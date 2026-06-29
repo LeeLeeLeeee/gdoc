@@ -98,7 +98,9 @@ export default function App() {
   const [editing, setEditing] = useState<Highlight | null>(null);
   const [editorPos, setEditorPos] = useState<{ x: number; y: number } | null>(null);
   const [hlMenuOpen, setHlMenuOpen] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<'docs' | 'highlights'>('docs');
   const loggedIn = !!session;
+  const showDocs = !loggedIn || sidebarMode === 'docs';
 
   // Debounce the search box: while typing, show a "typing" indicator; once settled,
   // apply the term and flash a "done" check that fades after a moment.
@@ -290,6 +292,13 @@ export default function App() {
         </div>
 
         <div className="doc-controls">
+          {loggedIn && (
+            <div className="seg seg-primary">
+              <button className={sidebarMode === 'docs' ? 'on' : ''} onClick={() => setSidebarMode('docs')}>문서</button>
+              <button className={sidebarMode === 'highlights' ? 'on' : ''} onClick={() => setSidebarMode('highlights')}>🔆 하이라이트{highlights.length ? ` ${highlights.length}` : ''}</button>
+            </div>
+          )}
+          {showDocs && (<>
           <div className="row-between">
             <span className="eyebrow">{countLabel}</span>
             <div className="list-actions">
@@ -338,8 +347,10 @@ export default function App() {
               )}
             </>
           )}
+          </>)}
         </div>
 
+        {showDocs ? (
         <div className="tree">
           {view === 'graph' ? (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>지식 그래프를<br />오른쪽에 표시 중</div>
@@ -390,12 +401,17 @@ export default function App() {
           )}
         </div>
 
-        {loggedIn && selected && (
-          <div className="sidebar-hl">
-            <div className="sidebar-hl-title">🔆 하이라이트 ({highlights.length})</div>
+        ) : (
+        <div className="tree sidebar-hl-body">
+          {!selected ? (
+            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>문서를 열면<br />하이라이트가 표시됩니다</div>
+          ) : highlights.length === 0 ? (
+            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>이 문서에 하이라이트가 없습니다</div>
+          ) : (
             <HighlightList highlights={highlights} orphanIds={orphanIds}
               onJump={(id) => frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*')} />
-          </div>
+          )}
+        </div>
         )}
       </aside>
 

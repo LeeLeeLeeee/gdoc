@@ -2,10 +2,11 @@
 // 점진적 향상: 비활성(로그인 안 함)이면 아무 것도 하지 않는다.
 export const HIGHLIGHT_BRIDGE_SCRIPT = `
 <style data-gdoc-highlight-style>
-mark.gdoc-hl { background: color-mix(in srgb, var(--accent, #3b82f6) 22%, transparent); border-radius: 2px; padding: 0 1px; cursor: pointer; }
-mark.gdoc-hl.action { background: color-mix(in srgb, #e0a106 30%, transparent); }
-mark.gdoc-hl.info { background: color-mix(in srgb, #3b82f6 24%, transparent); }
-mark.gdoc-hl.flash { outline: 2px solid var(--accent, #3b82f6); outline-offset: 1px; }
+mark.gdoc-hl { background: rgba(59,130,246,.16); color: inherit; border-radius: 3px; padding: 0 1px; box-decoration-break: clone; -webkit-box-decoration-break: clone; cursor: pointer; }
+mark.gdoc-hl.action { background: rgba(224,161,6,.20); }
+mark.gdoc-hl.flash { outline: 2px solid rgba(110,173,255,.95); outline-offset: 1px; border-radius: 3px; }
+:root[data-theme="dark"] mark.gdoc-hl { background: rgba(125,205,255,.22); }
+:root[data-theme="dark"] mark.gdoc-hl.action { background: rgba(255,196,67,.24); }
 </style>
 <script data-gdoc-highlight-bridge>
 (function(){
