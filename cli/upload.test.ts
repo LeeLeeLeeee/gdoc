@@ -23,6 +23,10 @@ function makeFakes() {
       this.calls.push({ bucket, key });
       return { publicUrl: bucket === 'public' ? `https://cdn/${key}` : undefined };
     },
+    async download() {
+      return html();
+    },
+    async remove() {},
   } satisfies StoragePort & { calls: { bucket: string; key: string }[] };
 
   const db = {
@@ -32,6 +36,17 @@ function makeFakes() {
     },
     async listExisting() {
       return [];
+    },
+    async getByIdOrPath(ref: string) {
+      return this.rows.find((row) => row.id === ref || row.path === ref) ?? null;
+    },
+    async exists(id: string) {
+      return this.rows.some((row) => row.id === id);
+    },
+    async updateIdentity(oldId: string, row: DocumentRow) {
+      const index = this.rows.findIndex((existing) => existing.id === oldId);
+      if (index === -1) this.rows.push(row);
+      else this.rows[index] = row;
     },
   } satisfies DbPort & { rows: DocumentRow[] };
 
@@ -86,8 +101,19 @@ describe('uploadDoc', () => {
   });
 
   it('does NOT write the db row if storage upload fails (storage-first order)', async () => {
-    const db = { rows: [] as DocumentRow[], async upsert(r: DocumentRow) { this.rows.push(r); }, async listExisting() { return []; } };
-    const storage: StoragePort = { async upload() { throw new Error('network down'); } };
+    const db = {
+      rows: [] as DocumentRow[],
+      async upsert(r: DocumentRow) { this.rows.push(r); },
+      async listExisting() { return []; },
+      async getByIdOrPath() { return null; },
+      async exists() { return false; },
+      async updateIdentity() {},
+    };
+    const storage: StoragePort = {
+      async upload() { throw new Error('network down'); },
+      async download() { return html(); },
+      async remove() {},
+    };
     await expect(uploadDoc(html(), { storage, db }, emptyCtx())).rejects.toThrow('network down');
     expect(db.rows).toHaveLength(0);
   });

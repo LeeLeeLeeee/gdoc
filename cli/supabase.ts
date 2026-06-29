@@ -27,6 +27,15 @@ export function createSupabasePorts(
       const { data } = sb.storage.from(bucket).getPublicUrl(key);
       return { publicUrl: bucket === 'public' ? data.publicUrl : undefined };
     },
+    async download(bucket, key) {
+      const { data, error } = await sb.storage.from(bucket).download(key);
+      if (error) throw error;
+      return await data.text();
+    },
+    async remove(bucket, key) {
+      const { error } = await sb.storage.from(bucket).remove([key]);
+      if (error) throw error;
+    },
   };
 
   const db: DbPort = {
@@ -54,6 +63,108 @@ export function createSupabasePorts(
       const { data, error } = await sb.from('documents').select('id,content_hash,path');
       if (error) throw error;
       return (data ?? []).map((r) => ({ id: r.id, contentHash: r.content_hash, path: r.path }));
+    },
+    async getByIdOrPath(ref) {
+      const { data: byId, error: byIdError } = await sb
+        .from('documents')
+        .select('id,uid,type,title,tags,category,created_at,visibility,path,project,bucket,storage_key,content_hash')
+        .eq('id', ref)
+        .maybeSingle();
+      if (byIdError) throw byIdError;
+
+      const { data, error } = byId ? { data: byId, error: null } : await sb
+        .from('documents')
+        .select('id,uid,type,title,tags,category,created_at,visibility,path,project,bucket,storage_key,content_hash')
+        .eq('path', ref)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        uid: data.uid,
+        type: data.type,
+        title: data.title,
+        tags: data.tags ?? [],
+        category: data.category,
+        createdAt: data.created_at,
+        visibility: data.visibility,
+        path: data.path,
+        project: data.project ?? undefined,
+        bucket: data.bucket,
+        storageKey: data.storage_key,
+        contentHash: data.content_hash ?? '',
+      };
+    },
+    async exists(id) {
+      const { data, error } = await sb.from('documents').select('id').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    async updateIdentity(oldId, row) {
+      const { error } = await sb
+        .from('documents')
+        .update({
+          id: row.id,
+          ...(row.uid ? { uid: row.uid } : {}),
+          type: row.type,
+          title: row.title,
+          tags: row.tags,
+          category: row.category,
+          created_at: row.createdAt,
+          visibility: row.visibility,
+          path: row.path,
+          project: row.project ?? null,
+          bucket: row.bucket,
+          storage_key: row.storageKey,
+          content_hash: row.contentHash,
+          owner_uid: ownerUid ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', oldId);
+      if (error) throw error;
+    },
+    async createFolder(path, folderOwnerUid) {
+      const segments = path.split('/').filter(Boolean);
+      const { error } = await sb.from('document_folders').insert({
+        path,
+        name: segments.at(-1) ?? path,
+        parent_path: segments.length > 1 ? segments.slice(0, -1).join('/') : null,
+        owner_uid: folderOwnerUid ?? ownerUid ?? null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
+    async renameFolder(oldPath, newPath, folderOwnerUid) {
+      const { data: folders, error: foldersError } = await sb.from('document_folders').select('*');
+      if (foldersError) throw foldersError;
+      const oldRows = (folders ?? []).filter((row) => row.path === oldPath || row.path.startsWith(`${oldPath}/`));
+      const rows = oldRows
+        .map((row) => {
+          const path = row.path === oldPath ? newPath : `${newPath}${row.path.slice(oldPath.length)}`;
+          const segments = path.split('/').filter(Boolean);
+          return {
+            ...row,
+            path,
+            name: segments.at(-1) ?? path,
+            parent_path: segments.length > 1 ? segments.slice(0, -1).join('/') : null,
+            owner_uid: row.owner_uid ?? folderOwnerUid ?? ownerUid ?? null,
+            updated_at: new Date().toISOString(),
+          };
+        });
+      if (rows.length) {
+        const { error } = await sb.from('document_folders').upsert(rows);
+        if (error) throw error;
+        const nextPaths = new Set(rows.map((row) => row.path));
+        const oldPaths = oldRows.map((row) => row.path).filter((path) => !nextPaths.has(path));
+        if (oldPaths.length) {
+          const { error: deleteError } = await sb.from('document_folders').delete().in('path', oldPaths);
+          if (deleteError) throw deleteError;
+        }
+      }
+    },
+    async deleteFolder(path) {
+      const { error } = await sb.from('document_folders').delete().eq('path', path);
+      if (error) throw error;
     },
   };
 

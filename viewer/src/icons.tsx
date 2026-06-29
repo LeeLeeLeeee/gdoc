@@ -71,3 +71,9 @@ export const File = ({ size = 14, color }: P) => (
 export const ChevronRight = ({ size = 12, color }: P) => (
   <svg {...s(size)} {...stroke(color)}><path d="m9 6 6 6-6 6" /></svg>
 );
+export const Pencil = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+);
+export const LinkIcon = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" /></svg>
+);

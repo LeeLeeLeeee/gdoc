@@ -6,7 +6,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p viewer/tsconfig.json --noEmit && vitest run",
-    "gdoc": "bun run cli/index.ts"
+    "gdoc": "bun run cli/index.ts",
+    "deploy:supabase": "node scripts/deploy-supabase.mjs",
+    "verify:remote": "node scripts/verify-remote.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

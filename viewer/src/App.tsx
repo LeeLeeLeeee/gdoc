@@ -6,13 +6,24 @@ import { useDocHtml } from './useDocHtml';
 import { useSearchIndex } from './useSearchIndex';
 import { contentSnippet, searchScore } from '../../shared/searchSnippet';
 import { useSession } from './auth';
+import { useFolders } from './useFolders';
+import { useFolderActions } from './useFolderActions';
+import { useUpdateDocMeta } from './useUpdateDocMeta';
+import { useShareLinks } from './useShareLinks';
 import { AuthBar } from './AuthBar';
 import { LoginModal } from './LoginModal';
 import { SortControl } from './SortControl';
+import { DocEditModal } from './DocEditModal';
+import { ShareLinkModal } from './ShareLinkModal';
+import { CreateFolderDialog } from './CreateFolderDialog';
+import { TreeRenameDialog } from './TreeRenameDialog';
+import { SharedDocPage } from './SharedDocPage';
 import { formatUpdatedAt } from './dateFormat';
 import { sortDocs, type SortKey, type SortDir } from '../../shared/sortDocs';
 import type { DocSummary } from '../../shared/buildTree';
-import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check } from './icons';
+import { folderPathOf } from '../../shared/folderRules';
+import { shareTokenFromPath } from '../../shared/shareLinks';
+import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon } from './icons';
 
 const loadGraphView = () => import('./GraphView').then((m) => ({ default: m.GraphView }));
 const GraphView = lazy(loadGraphView);
@@ -22,6 +33,7 @@ const preloadGraphView = () => {
 
 type ThemeMode = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'gdoc-theme';
+const ownerUid = import.meta.env.VITE_OWNER_UID as string | undefined;
 
 function getInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'dark';
@@ -38,8 +50,17 @@ function useNow() {
 }
 
 export default function App() {
+  const shareToken = typeof window === 'undefined' ? null : shareTokenFromPath(window.location.pathname);
   const { session, ready } = useSession();
+  const canManage = Boolean(session && ownerUid && session.user.id === ownerUid);
   const { docs, loading, error, refetch: refetchDocs } = useDocs(session?.user?.id ?? null, ready);
+  const { folders, loading: foldersLoading, error: foldersError, refetch: refetchFolders } = useFolders(
+    session?.user?.id ?? null,
+    ready,
+  );
+  const { updateDocMeta, saving: savingDoc, error: docSaveError } = useUpdateDocMeta(session);
+  const folderActions = useFolderActions(session);
+  const shareActions = useShareLinks(session);
   const now = useNow();
 
   const [q, setQ] = useState(''); // meta filter
@@ -52,8 +73,15 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
 
   const [selected, setSelected] = useState<DocSummary | null>(null);
+  const [editingDoc, setEditingDoc] = useState<DocSummary | null>(null);
+  const [sharingDoc, setSharingDoc] = useState<DocSummary | null>(null);
+  const [createFolderParent, setCreateFolderParent] = useState<string | null | undefined>(undefined);
+  const [movingDoc, setMovingDoc] = useState<{ id: string; targetFolderPath: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<
+    { kind: 'file'; doc: DocSummary } | { kind: 'folder'; path: string; name: string } | null
+  >(null);
   const [showLogin, setShowLogin] = useState(false);
-  const { docHtml, loadError, retry } = useDocHtml(selected);
+  const { docHtml, loadError, retry } = useDocHtml(selected, session);
   const { index: searchIndex } = useSearchIndex(session, ready);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -127,6 +155,8 @@ export default function App() {
 
   const hasFilter = q.trim() !== '' || debouncedName.trim() !== '';
   const countLabel = !ready ? '문서' : session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
+  const listLoading = !ready || loading || foldersLoading;
+  const listError = error ?? foldersError;
   const crumb = selected ? selected.path.split('/').slice(0, -1).join(' / ') : '';
   const docLoading = !!selected && docHtml === null && !loadError;
   const loadingPath = docLoading && selected ? selected.path : undefined;
@@ -151,6 +181,10 @@ export default function App() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     sendThemeToFrame();
   }, [sendThemeToFrame, theme]);
+
+  if (shareToken) {
+    return <SharedDocPage token={shareToken} />;
+  }
 
   return (
     <div className={`app ${mobileScreen}`} data-theme={theme}>
@@ -180,9 +214,12 @@ export default function App() {
             <span className="eyebrow">{countLabel}</span>
             <div className="list-actions">
               <button
-                className={`icon-btn list-refresh${loading ? ' loading' : ''}`}
-                onClick={refetchDocs}
-                disabled={!ready || loading}
+                className={`icon-btn list-refresh${listLoading ? ' loading' : ''}`}
+                onClick={() => {
+                  refetchDocs();
+                  refetchFolders();
+                }}
+                disabled={!ready || listLoading}
                 aria-label="문서 목록 새로고침"
                 title="문서 목록 새로고침"
               >
@@ -226,13 +263,43 @@ export default function App() {
         <div className="tree">
           {view === 'graph' ? (
             <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>지식 그래프를<br />오른쪽에 표시 중</div>
-          ) : !ready || loading ? (
+          ) : listLoading ? (
             <div className="center muted" style={{ padding: 24 }}>불러오는 중…</div>
-          ) : error ? (
-            <div className="center error-text" style={{ padding: 24 }}>에러: {error}</div>
-          ) : visible.length ? (
+          ) : listError ? (
+            <div className="center error-text" style={{ padding: 24 }}>에러: {listError}</div>
+          ) : visible.length || (view === 'tree' && canManage) ? (
             view === 'tree' ? (
-              <FileTree docs={visible} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} />
+              <FileTree
+                docs={visible}
+                folders={folders}
+                selectedPath={selected?.path}
+                loadingPath={loadingPath}
+                movingDocId={movingDoc?.id}
+                movingTargetPath={movingDoc?.targetFolderPath}
+                now={now}
+                onSelect={setSelected}
+                canManage={canManage}
+                onCreateFolder={(parentPath) => setCreateFolderParent(parentPath)}
+                onRenameFolder={(path, name) => setRenameTarget({ kind: 'folder', path, name })}
+                onDeleteFolder={async (path) => {
+                  await folderActions.deleteFolder(path);
+                  refetchFolders();
+                }}
+                onRenameFile={(doc) => setRenameTarget({ kind: 'file', doc })}
+                onEditFile={(doc) => setEditingDoc(doc)}
+                onMoveDocToFolder={async (doc, targetFolderPath) => {
+                  if (folderPathOf(doc.path) === targetFolderPath) return;
+                  setMovingDoc({ id: doc.id, targetFolderPath });
+                  try {
+                    const updated = await folderActions.moveDocToFolder(doc.id, targetFolderPath);
+                    setSelected(updated);
+                    refetchDocs();
+                    refetchFolders();
+                  } finally {
+                    setMovingDoc(null);
+                  }
+                }}
+              />
             ) : (
               <CardView docs={visible} terms={filterTerms} snippets={snippets} selectedPath={selected?.path} loadingPath={loadingPath} now={now} onSelect={setSelected} filtered={hasFilter} />
             )
@@ -276,6 +343,26 @@ export default function App() {
               >
                 <Refresh size={14} />
               </button>
+              {canManage && (
+                <button
+                  className="icon-btn"
+                  onClick={() => setSharingDoc(selected)}
+                  aria-label="공유 링크"
+                  title="공유 링크"
+                >
+                  <LinkIcon size={14} />
+                </button>
+              )}
+              {canManage && (
+                <button
+                  className="icon-btn"
+                  onClick={() => setEditingDoc(selected)}
+                  aria-label="문서 편집"
+                  title="문서 편집"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
               <span className="badge badge-brand">{selected.type}</span>
               <span className={`badge ${selected.visibility === 'private' ? 'badge-amber' : 'badge-neutral'}`}>
                 {selected.visibility === 'private' ? '비공개' : '공개'}
@@ -304,7 +391,7 @@ export default function App() {
                       sendThemeToFrame();
                       setFrameReady(true);
                     }}
-                    sandbox="allow-scripts allow-popups allow-same-origin"
+                    sandbox="allow-scripts allow-popups allow-same-origin allow-popups-to-escape-sandbox"
                   />
                 </div>
               ) : (
@@ -324,6 +411,83 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {editingDoc && (
+        <DocEditModal
+          doc={editingDoc}
+          saving={savingDoc}
+          error={docSaveError}
+          onClose={() => setEditingDoc(null)}
+          onSave={async (patch) => {
+            const updated = await updateDocMeta(editingDoc.id, patch);
+            setSelected(updated);
+            setEditingDoc(null);
+            refetchDocs();
+            refetchFolders();
+            retry();
+          }}
+        />
+      )}
+
+      {sharingDoc && (
+        <ShareLinkModal
+          doc={sharingDoc}
+          loading={shareActions.loading}
+          error={shareActions.error}
+          onClose={() => setSharingDoc(null)}
+          onList={shareActions.listShareLinks}
+          onCreate={shareActions.createShareLink}
+          onRevoke={shareActions.revokeShareLink}
+        />
+      )}
+
+      {createFolderParent !== undefined && (
+        <CreateFolderDialog
+          parentPath={createFolderParent}
+          saving={folderActions.saving}
+          onClose={() => setCreateFolderParent(undefined)}
+          onCreate={async (name) => {
+            await folderActions.createFolder(createFolderParent, name);
+            setCreateFolderParent(undefined);
+            refetchFolders();
+          }}
+        />
+      )}
+
+      {renameTarget && (
+        <TreeRenameDialog
+          title={renameTarget.kind === 'file' ? '파일 이름 변경' : '폴더 이름 변경'}
+          currentName={
+            renameTarget.kind === 'file'
+              ? renameTarget.doc.path.split('/').at(-1) ?? renameTarget.doc.path
+              : renameTarget.name
+          }
+          saving={savingDoc || folderActions.saving}
+          onClose={() => setRenameTarget(null)}
+          onRename={async (name) => {
+            if (renameTarget.kind === 'file') {
+              const parent = folderPathOf(renameTarget.doc.path);
+              const nextPath = parent ? `${parent}/${name}` : name;
+              if (nextPath !== renameTarget.doc.path) {
+                const updated = await updateDocMeta(renameTarget.doc.id, { path: nextPath });
+                setSelected(updated);
+                refetchDocs();
+                refetchFolders();
+                retry();
+              }
+            } else {
+              const result = await folderActions.renameFolder(renameTarget.path, name);
+              if (selected) {
+                const updatedSelected = result.movedDocuments.find((doc) => doc.id === selected.id);
+                if (updatedSelected) setSelected(updatedSelected);
+              }
+              refetchDocs();
+              refetchFolders();
+            }
+            setRenameTarget(null);
+          }}
+        />
+      )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>

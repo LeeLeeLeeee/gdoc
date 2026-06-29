@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, flattenTree, type DocSummary } from './buildTree';
+import { buildTree, flattenTree, type DocSummary, type FolderSummary, type TreeNode } from './buildTree';
 
 const doc = (path: string, extra: Partial<DocSummary> = {}): DocSummary => ({
   id: path,
@@ -15,6 +15,17 @@ const doc = (path: string, extra: Partial<DocSummary> = {}): DocSummary => ({
   updatedAt: '2026-01-01T00:00:00Z',
   ...extra,
 });
+
+const folder = (path: string): FolderSummary => {
+  const parts = path.split('/');
+  return {
+    path,
+    name: parts[parts.length - 1],
+    parentPath: parts.length > 1 ? parts.slice(0, -1).join('/') : null,
+    createdAt: '2026-06-25T00:00:00Z',
+    updatedAt: '2026-06-25T00:00:00Z',
+  };
+};
 
 describe('buildTree', () => {
   it('nests a single doc into its folder chain with a file leaf', () => {
@@ -76,5 +87,37 @@ describe('buildTree', () => {
     const leaf = (tree[0] as any).children[0];
     expect(leaf.doc.title).toBe('Hello');
     expect(leaf.doc.visibility).toBe('private');
+  });
+
+  it('shows explicit empty folders', () => {
+    const tree = buildTree([], { folders: [folder('playground/empty')] });
+    expect(tree).toMatchObject([
+      {
+        kind: 'folder',
+        name: 'playground',
+        path: 'playground',
+        explicit: false,
+        children: [
+          {
+            kind: 'folder',
+            name: 'empty',
+            path: 'playground/empty',
+            explicit: true,
+            children: [],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('merges explicit folders with document-derived folders', () => {
+    const docs = [doc('playground/notes/a')];
+    const tree = buildTree(docs, { folders: [folder('playground/notes')] });
+    const notes = (tree[0] as Extract<TreeNode, { kind: 'folder' }>).children[0] as Extract<
+      TreeNode,
+      { kind: 'folder' }
+    >;
+    expect(notes.explicit).toBe(true);
+    expect(notes.children[0]).toMatchObject({ kind: 'file', path: 'playground/notes/a' });
   });
 });

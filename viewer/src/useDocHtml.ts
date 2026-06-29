@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import type { DocSummary } from '../../shared/buildTree';
-import { docUrl } from './supabase';
+import { fetchDocHtml } from './supabase';
 
 const THEME_BRIDGE = `
 <script data-gdoc-theme-bridge>
@@ -36,7 +37,7 @@ const THEME_BRIDGE = `
 })();
 </script>`;
 
-function injectThemeBridge(html: string) {
+export function injectThemeBridge(html: string) {
   if (html.includes('data-gdoc-theme-bridge') || html.includes("type !== 'set-theme'") || html.includes('type !== "set-theme"')) {
     return html;
   }
@@ -48,7 +49,7 @@ function injectThemeBridge(html: string) {
   return `${html}\n${THEME_BRIDGE}`;
 }
 
-export function useDocHtml(selected: DocSummary | null) {
+export function useDocHtml(selected: DocSummary | null, session: Session | null) {
   const [docHtml, setDocHtml] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -65,12 +66,7 @@ export function useDocHtml(selected: DocSummary | null) {
 
     setDocHtml(null);
     setLoadError(false);
-    docUrl(selected, reload)
-      .then((url) => fetch(url, { signal: ac.signal }))
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
+    fetchDocHtml(selected, session?.access_token, reload, ac.signal)
       .then((html) => {
         if (!cancelled) setDocHtml(injectThemeBridge(html));
       })
@@ -84,7 +80,7 @@ export function useDocHtml(selected: DocSummary | null) {
       cancelled = true;
       ac.abort();
     };
-  }, [selected, reload]);
+  }, [selected, session?.access_token, reload]);
 
   return {
     docHtml,

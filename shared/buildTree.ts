@@ -15,19 +15,49 @@ export interface DocSummary {
   updatedAt: string;
 }
 
+export interface FolderSummary {
+  path: string;
+  name: string;
+  parentPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TreeNode =
-  | { kind: 'folder'; name: string; path: string; children: TreeNode[] }
+  | { kind: 'folder'; name: string; path: string; explicit: boolean; children: TreeNode[] }
   | { kind: 'file'; name: string; path: string; doc: DocSummary };
 
 type FolderNode = Extract<TreeNode, { kind: 'folder' }>;
+
+function ensureFolder(children: TreeNode[], name: string, path: string, explicit: boolean): FolderNode {
+  let folder = children.find((n): n is FolderNode => n.kind === 'folder' && n.name === name);
+  if (!folder) {
+    folder = { kind: 'folder', name, path, explicit, children: [] };
+    children.push(folder);
+  } else if (explicit) {
+    folder.explicit = true;
+  }
+  return folder;
+}
 
 /**
  * Flat doc list → nested folder tree. Each doc's `path` is split on '/'; all but
  * the last segment are folders, the last is the file leaf. Pure + deterministic
  * (folders before files, each sorted alphabetically) so the viewer + tests agree.
  */
-export function buildTree(docs: DocSummary[], opts: { sort?: boolean } = {}): TreeNode[] {
+export function buildTree(docs: DocSummary[], opts: { sort?: boolean; folders?: FolderSummary[] } = {}): TreeNode[] {
   const roots: TreeNode[] = [];
+
+  for (const folder of opts.folders ?? []) {
+    const segments = folder.path.split('/').filter(Boolean);
+    let children = roots;
+    let accPath = '';
+    for (const seg of segments) {
+      accPath = accPath ? `${accPath}/${seg}` : seg;
+      const node = ensureFolder(children, seg, accPath, accPath === folder.path);
+      children = node.children;
+    }
+  }
 
   for (const doc of docs) {
     const segments = doc.path.split('/').filter(Boolean);
@@ -40,13 +70,7 @@ export function buildTree(docs: DocSummary[], opts: { sort?: boolean } = {}): Tr
     let accPath = '';
     for (const seg of folderSegments) {
       accPath = accPath ? `${accPath}/${seg}` : seg;
-      let folder = children.find(
-        (n): n is FolderNode => n.kind === 'folder' && n.name === seg,
-      );
-      if (!folder) {
-        folder = { kind: 'folder', name: seg, path: accPath, children: [] };
-        children.push(folder);
-      }
+      const folder = ensureFolder(children, seg, accPath, false);
       children = folder.children;
     }
 
@@ -64,11 +88,16 @@ export function flattenTree(nodes: TreeNode[]): TreeNode[] {
     if (n.kind !== 'folder') return n;
     let folder = n;
     let name = folder.name;
-    while (folder.children.length === 1 && folder.children[0].kind === 'folder') {
+    while (
+      !folder.explicit &&
+      folder.children.length === 1 &&
+      folder.children[0].kind === 'folder' &&
+      !folder.children[0].explicit
+    ) {
       folder = folder.children[0] as FolderNode;
       name += ` / ${folder.name}`;
     }
-    return { kind: 'folder', name, path: folder.path, children: flattenTree(folder.children) };
+    return { kind: 'folder', name, path: folder.path, explicit: folder.explicit, children: flattenTree(folder.children) };
   });
 }
 

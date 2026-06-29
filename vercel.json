@@ -3,5 +3,8 @@
   "framework": "vite",
   "installCommand": "bun install && cd viewer && bun install",
   "buildCommand": "cd viewer && bun run build",
-  "outputDirectory": "viewer/dist"
+  "outputDirectory": "viewer/dist",
+  "rewrites": [
+    { "source": "/share/:token", "destination": "/" }
+  ]
 }

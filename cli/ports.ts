@@ -9,6 +9,8 @@ export interface StoragePort {
     body: string | Uint8Array,
     contentType?: string,
   ): Promise<{ publicUrl?: string }>;
+  download(bucket: Bucket, key: string): Promise<string>;
+  remove(bucket: Bucket, key: string): Promise<void>;
 }
 
 export interface DocumentRow {
@@ -36,4 +38,10 @@ export interface ExistingDoc {
 export interface DbPort {
   upsert(row: DocumentRow): Promise<void>;
   listExisting(): Promise<ExistingDoc[]>;
+  getByIdOrPath(ref: string): Promise<DocumentRow | null>;
+  exists(id: string): Promise<boolean>;
+  updateIdentity(oldId: string, row: DocumentRow): Promise<void>;
+  createFolder?(path: string, ownerUid?: string): Promise<void>;
+  renameFolder?(oldPath: string, newPath: string, ownerUid?: string): Promise<void>;
+  deleteFolder?(path: string): Promise<void>;
 }

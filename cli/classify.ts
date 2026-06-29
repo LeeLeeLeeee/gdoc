@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { GdocMeta } from '../shared/schema';
+import { storageKeyFromIdHash } from '../shared/storageKey';
 
 /** sha256 of the raw HTML — used to detect duplicate / unchanged uploads. */
 export function contentHash(html: string): string {
@@ -38,7 +39,5 @@ export function defaultPath(meta: GdocMeta): string {
  * it and append a short hash of the id for uniqueness + stability across re-uploads.
  */
 export function storageKey(id: string): string {
-  const ascii = id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  const h = createHash('sha256').update(id).digest('hex').slice(0, 10);
-  return `${(ascii || 'doc').slice(0, 80)}-${h}.html`;
+  return storageKeyFromIdHash(id, createHash('sha256').update(id).digest('hex'));
 }

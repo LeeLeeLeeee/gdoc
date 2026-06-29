@@ -11,9 +11,9 @@
 ```
 gdoc/
   shared/      # CLI·뷰어 공유 순수 로직 (zod 스키마, 트리, 정렬, 그래프) — 단위 테스트
-  cli/         # gdoc CLI: 업로드 / analyze (Supabase에 발행)
-  viewer/      # Trove 뷰어 — Vite + React (다크 테마)
-  supabase/    # Postgres 마이그레이션 (documents 테이블, RLS, 버킷)
+  cli/         # gdoc CLI: 업로드 / 문서·폴더 관리 / analyze
+  viewer/      # Trove 뷰어 — Vite + React (트리·카드·그래프·문서 편집)
+  supabase/    # Postgres 마이그레이션 + Edge Function(admin-docs)
 ```
 
 - **백엔드**: Supabase — Postgres(`documents`), Auth, Storage. 인증 없는 방문자는 공개 문서만, 로그인한 소유자는 전부.
@@ -26,13 +26,14 @@ gdoc/
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — CLI 전용(서버 키, **절대 커밋·노출 금지**)
    - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — 뷰어용(공개 안전, RLS 보호)
 3. 마이그레이션 적용: `supabase/migrations/*.sql`을 순서대로 Supabase SQL Editor에 실행(또는 `supabase db push`).
-4. Auth → 공개 가입 끄기 + 본인 계정 1개 생성(소유자). 단일 사용자 모델("로그인 = 소유자").
+4. Auth → 소유자 계정 1개 생성 후 그 사용자의 UID를 `OWNER_UID`와 `VITE_OWNER_UID`에 설정합니다.
+5. viewer에서 문서/폴더를 수정하려면 `supabase/functions/admin-docs` Edge Function을 배포합니다. 이 함수도 `OWNER_UID`와 일치하는 사용자만 쓰기를 허용합니다.
 
 ## 사용 방법
 
 1. **문서 작성** — HTML을 만들 때 `<head>`에 아래 메타 블록을 넣습니다(제목·태그·카테고리·경로·공개범위).
 2. **업로드** — `bun run gdoc upload <폴더>` 로 폴더 안의 `*.html` 파일들을 한 번에 발행합니다(본문/자산 → Storage, 메타 → Postgres). 폴더는 "올릴 HTML 모음"일 뿐이고, 뷰어의 **폴더 트리는 로컬 폴더 구조가 아니라 각 문서의 `path` 메타**로 구성됩니다.
-3. **열람** — 뷰어(로컬 `bun run dev` 또는 배포 URL)에서 트리/카드/그래프로 탐색하고, 문서를 클릭하면 페이지로 읽습니다.
+3. **열람·정리** — 뷰어(로컬 `bun run dev` 또는 배포 URL)에서 트리/카드/그래프로 탐색하고, 문서를 클릭하면 페이지로 읽습니다. 로그인 상태에서는 문서 편집, 이름 변경, 폴더 생성/변경/삭제, 문서 드래그 이동을 할 수 있습니다.
 4. **그래프(선택)** — `bun run gdoc analyze` 실행 후 로그인하면 태그 기반 지식 그래프를 봅니다.
 
 ### 공개 / 비공개 (`visibility`)
@@ -45,8 +46,9 @@ gdoc/
 | 저장 | Storage `public` 버킷(공개 URL) | Storage `private` 버킷(서명 URL) |
 | 표시 | 트리/카드/그래프에 항상 | 로그인 후에만, 자물쇠 아이콘 |
 
-- **로그인**: 사이드바의 `로그인`(데스크톱) 또는 바텀시트(모바일)에서 소유자 이메일·비밀번호로 로그인합니다. 로그인하면 비공개 문서가 트리에 함께 나타나고, 로그아웃하면 다시 공개 문서만 보입니다.
-- 권한은 클라이언트가 아니라 **Postgres RLS + Storage 정책**으로 강제됩니다 — 비로그인 상태에선 비공개 문서가 애초에 전달되지 않습니다.
+- **로그인**: 사이드바의 `로그인`(데스크톱) 또는 바텀시트(모바일)에서 소유자 이메일·비밀번호로 로그인합니다. 로그인 사용자의 UID가 `OWNER_UID`와 같으면 비공개 문서와 편집 기능이 열립니다. 로그아웃하면 공개 문서만 보입니다.
+- 권한은 클라이언트가 아니라 **Postgres RLS + Storage 정책 + Edge Function owner check**로 강제됩니다. 비로그인 상태에선 비공개 문서 메타가 전달되지 않고, private Storage 객체도 서명 URL을 만들 수 없습니다.
+- 문서 row의 `owner_uid`는 CLI 업로드 시 `OWNER_UID`로 기록됩니다. private 문서 조회 정책은 `visibility = 'public' or auth.uid() = owner_uid`입니다.
 
 ## 문서 메타 형식
 
@@ -81,6 +83,12 @@ bun install
 bun run gdoc upload docs                # 폴더 안 *.html 일괄 업로드
 bun run gdoc upload note.html           # 단일 파일도 가능
 bun run gdoc upload docs --auto-path    # path 없는 문서는 codex/claude가 자동 배치
+bun run gdoc meta <id|path> --title "..." --tags a,b
+bun run gdoc mv <id|path> "folder/new-name"
+bun run gdoc rename <id|path> "new-name"
+bun run gdoc folder mkdir "folder/path"
+bun run gdoc folder rename "old/path" "new-name"
+bun run gdoc folder rmdir "empty/path"
 bun run gdoc analyze                    # 임베딩 기반 지식 그래프 → private/graph/graph.json
 ```
 
@@ -95,6 +103,7 @@ bun run gdoc analyze                    # 임베딩 기반 지식 그래프 → 
 
 - 중복/변경 판별은 `content_hash`(HTML의 sha256)로 결정론적·저비용.
 - **`--auto-path`**: `path`가 없는 문서는 제목·태그·카테고리 + 기존 폴더 목록을 `codex`/`claude`에 주어 폴더를 자동 배치합니다. 엔진이 없으면 `<project|category>/<title>`로 폴백.
+- `meta`/`mv`/`rename`/`folder rename`은 HTML의 `gdoc-meta`, `documents` row, Storage object key를 함께 갱신합니다. 먼저 `--dry-run`으로 이동 결과를 확인할 수 있습니다.
 
 ### `analyze` — 임베딩 기반 지식 그래프
 
@@ -135,7 +144,10 @@ bun run build      # dist/
 ```
 
 - 트리 / 카드 / **그래프** 뷰 전환, 이름 검색 + 메타 필터(AND), 정렬, 데스크톱·모바일 반응형
-- 그래프 뷰는 소유자 전용(로그인 시), zoom/pan 지원
+- 소유자 로그인 상태의 트리 context menu: 새 폴더, 폴더 이름 변경, 빈 폴더 삭제, 파일 이름 변경, 메타정보 편집
+- 파일을 폴더 row로 드래그하면 해당 폴더로 이동합니다.
+- 문서 헤더의 편집 버튼에서 title/path/tags/category/type/visibility를 수정합니다.
+- 그래프 뷰는 소유자 전용, zoom/pan 지원
 - 배포: `DEPLOY.md` 참고(Vercel)
 
 ## 테스트

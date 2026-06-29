@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildTree, flattenTree, type DocSummary } from '../../shared/buildTree';
+import { buildTree, flattenTree, type DocSummary, type FolderSummary } from '../../shared/buildTree';
 import { TreeView } from './TreeView';
 
 /**
@@ -10,17 +10,54 @@ import { TreeView } from './TreeView';
  */
 export function FileTree({
   docs,
+  folders = [],
   selectedPath,
   loadingPath,
+  movingDocId,
+  movingTargetPath,
   now,
   onSelect,
+  canManage,
+  onCreateFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onRenameFile,
+  onEditFile,
+  onMoveDocToFolder,
 }: {
   docs: DocSummary[];
+  folders?: FolderSummary[];
   selectedPath?: string;
   loadingPath?: string;
+  movingDocId?: string;
+  movingTargetPath?: string;
   now: number;
   onSelect: (doc: DocSummary) => void;
+  canManage?: boolean;
+  onCreateFolder?: (parentPath: string | null) => void;
+  onRenameFolder?: (path: string, currentName: string) => void;
+  onDeleteFolder?: (path: string) => void;
+  onRenameFile?: (doc: DocSummary) => void;
+  onEditFile?: (doc: DocSummary) => void;
+  onMoveDocToFolder?: (doc: DocSummary, folderPath: string) => void;
 }) {
-  const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false })), [docs]);
-  return <TreeView nodes={tree} selectedPath={selectedPath} loadingPath={loadingPath} now={now} onSelect={onSelect} />;
+  const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false, folders })), [docs, folders]);
+  return (
+    <TreeView
+      nodes={tree}
+      selectedPath={selectedPath}
+      loadingPath={loadingPath}
+      movingDocId={movingDocId}
+      movingTargetPath={movingTargetPath}
+      now={now}
+      onSelect={onSelect}
+      canManage={canManage}
+      onCreateFolder={onCreateFolder}
+      onRenameFolder={onRenameFolder}
+      onDeleteFolder={onDeleteFolder}
+      onRenameFile={onRenameFile}
+      onEditFile={onEditFile}
+      onMoveDocToFolder={onMoveDocToFolder}
+    />
+  );
 }
