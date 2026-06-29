@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+node_modules
+viewer/node_modules
+viewer/dist
+.supabase

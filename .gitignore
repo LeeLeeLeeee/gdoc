@@ -8,3 +8,4 @@ service-role*.json
 .gstack/
 
 .vercel
+.superpowers/
