@@ -16,4 +16,11 @@ describe('injectHighlightBridge', () => {
     const count = twice.split('data-gdoc-highlight-bridge').length - 1;
     expect(count).toBe(1);
   });
+
+  it('injects mark styling into the iframe (parent stylesheet does not reach it)', () => {
+    const out = injectHighlightBridge(HTML);
+    expect(out).toContain('data-gdoc-highlight-style');
+    expect(out).toContain('mark.gdoc-hl');
+    expect(out.indexOf('mark.gdoc-hl')).toBeLessThan(out.indexOf('</body>'));
+  });
 });
