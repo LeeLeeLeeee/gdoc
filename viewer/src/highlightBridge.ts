@@ -86,18 +86,32 @@ mark.gdoc-hl.flash { outline: 2px solid var(--accent, #3b82f6); outline-offset: 
     });
   });
 
-  function wrap(range, id, cls){
-    var mark = document.createElement('mark');
-    mark.setAttribute('data-hl-id', id);
-    mark.className = 'gdoc-hl ' + (cls || '');
-    try { range.surroundContents(mark); }
-    catch(e){ mark.appendChild(range.extractContents()); range.insertNode(mark); }
-    mark.addEventListener('click', function(ev){
+  // Wrap each text-node segment within the range in its own inline <mark>, so only
+  // glyph backgrounds are highlighted (no block-spanning bands) and whitespace-only
+  // boundary nodes between blocks are skipped (no full-width slivers).
+  function onMarkClick(id){
+    return function(ev){
       ev.stopPropagation();
-      var r = mark.getBoundingClientRect();
+      var r = ev.currentTarget.getBoundingClientRect();
       send('hl:clicked', { id: id, rect: { x:r.left, y:r.top, w:r.width, h:r.height } });
+    };
+  }
+  function wrap(range, id, cls){
+    var nodes = filteredTextNodes().filter(function(n){ return range.intersectsNode(n); });
+    nodes.forEach(function(node){
+      var s = (node === range.startContainer) ? range.startOffset : 0;
+      var e = (node === range.endContainer) ? range.endOffset : node.nodeValue.length;
+      if (e <= s) return;
+      if (!node.nodeValue.slice(s, e).trim()) return; // skip whitespace-only segment
+      var seg = document.createRange();
+      seg.setStart(node, s); seg.setEnd(node, e);
+      var mark = document.createElement('mark');
+      mark.setAttribute('data-hl-id', id);
+      mark.className = 'gdoc-hl ' + (cls || '');
+      seg.surroundContents(mark); // single text node → always safe, stays inline
+      mark.addEventListener('click', onMarkClick(id));
+      (marks[id] = marks[id] || []).push(mark);
     });
-    (marks[id] = marks[id] || []).push(mark);
   }
 
   function clear(id){

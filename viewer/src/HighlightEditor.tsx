@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { HIGHLIGHT_KEYWORDS, isActionKeyword } from '../../shared/highlightKeywords';
 import type { Highlight } from './useHighlights';
 
 interface Props {
   highlight: Pick<Highlight, 'exact' | 'note' | 'keywords'>;
+  style?: CSSProperties;
   onSave: (patch: { note: string; keywords: string[] }) => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
-export function HighlightEditor({ highlight, onSave, onDelete, onClose }: Props) {
+export function HighlightEditor({ highlight, style, onSave, onDelete, onClose }: Props) {
   const [keywords, setKeywords] = useState<string[]>(highlight.keywords ?? []);
   const [note, setNote] = useState(highlight.note ?? '');
 
@@ -17,7 +18,7 @@ export function HighlightEditor({ highlight, onSave, onDelete, onClose }: Props)
     setKeywords((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
 
   return (
-    <div className="hl-editor" role="dialog" aria-label="하이라이트 주석">
+    <div className="hl-editor" role="dialog" aria-label="하이라이트 주석" style={style}>
       <blockquote className="hl-quote">"{highlight.exact.slice(0, 120)}"</blockquote>
       <div className="hl-kw-buttons">
         {HIGHLIGHT_KEYWORDS.map((k) => (

@@ -94,8 +94,10 @@ export default function App() {
   const { highlights, create, update, remove } = useHighlights(selected?.id ?? null, session);
   const [docText, setDocText] = useState('');
   const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
-  const [popover, setPopover] = useState<{ x: number; y: number; anchorRange: { start: number; end: number } } | null>(null);
+  const [popover, setPopover] = useState<{ x: number; y: number; bottom: number; anchorRange: { start: number; end: number } } | null>(null);
   const [editing, setEditing] = useState<Highlight | null>(null);
+  const [editorPos, setEditorPos] = useState<{ x: number; y: number } | null>(null);
+  const [hlMenuOpen, setHlMenuOpen] = useState(false);
   const loggedIn = !!session;
 
   // Debounce the search box: while typing, show a "typing" indicator; once settled,
@@ -181,12 +183,16 @@ export default function App() {
         setPopover({
           x: rectOffset.left + d.rect.x,
           y: rectOffset.top + d.rect.y,
+          bottom: rectOffset.top + d.rect.y + d.rect.h,
           anchorRange: { start: d.anchor.start, end: d.anchor.end },
         });
       }
-      if (d.type === 'hl:clicked') {
+      if (d.type === 'hl:clicked' && rectOffset) {
         const h = highlights.find((x) => x.id === d.id);
-        if (h) setEditing(h);
+        if (h) {
+          setEditorPos({ x: rectOffset.left + d.rect.x, y: rectOffset.top + d.rect.y + d.rect.h + 6 });
+          setEditing(h);
+        }
       }
       if (d.type === 'hl:anchored') {
         setOrphanIds((cur) => {
@@ -251,6 +257,7 @@ export default function App() {
       doc_id: selected!.id, exact: a.exact, prefix: a.prefix, suffix: a.suffix,
       text_pos: a.textPos, note: null, keywords,
     });
+    setEditorPos({ x: popover.x, y: popover.bottom + 6 });
     setPopover(null);
     if (created) setEditing(created);
   }
@@ -448,9 +455,17 @@ export default function App() {
               <span className={`badge ${selected.visibility === 'private' ? 'badge-amber' : 'badge-neutral'}`}>
                 {selected.visibility === 'private' ? '비공개' : '공개'}
               </span>
-              {loggedIn && (
-                <HighlightList highlights={highlights} orphanIds={orphanIds} compact
-                  onJump={(id) => frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*')} />
+              {loggedIn && highlights.length > 0 && (
+                <div className="hl-menu-wrap">
+                  <button className="hl-menu-btn" type="button" aria-label="하이라이트 목록"
+                    onClick={() => setHlMenuOpen((o) => !o)}>🔆 {highlights.length}</button>
+                  {hlMenuOpen && (
+                    <div className="hl-menu">
+                      <HighlightList highlights={highlights} orphanIds={orphanIds}
+                        onJump={(id) => { frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*'); setHlMenuOpen(false); }} />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="doc-reader">
@@ -588,12 +603,13 @@ export default function App() {
       {editing && (
         <HighlightEditor
           highlight={editing}
+          style={editorPos ? { left: editorPos.x, top: editorPos.y } : undefined}
           onSave={(patch) => update(editing.id, patch)}
           onDelete={() => {
             remove(editing.id);
             frameRef.current?.contentWindow?.postMessage({ type: 'hl:remove', id: editing.id }, '*');
           }}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); setEditorPos(null); }}
         />
       )}
     </div>
