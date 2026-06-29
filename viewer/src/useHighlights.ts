@@ -53,3 +53,19 @@ export function useHighlights(docId: string | null, session: Session | null) {
 
   return { highlights, create, update, remove, reload };
 }
+
+/** All of the owner's highlights across every document (for the "모아보기" view). */
+export function useAllHighlights(session: Session | null) {
+  const [all, setAll] = useState<Highlight[]>([]);
+
+  const reloadAll = useCallback(async () => {
+    if (!session) { setAll([]); return; }
+    const { data, error } = await sb
+      .from('highlights').select('*').order('doc_id').order('created_at');
+    if (!error && data) setAll(data as Highlight[]);
+  }, [session]);
+
+  useEffect(() => { reloadAll(); }, [reloadAll]);
+
+  return { all, reloadAll };
+}

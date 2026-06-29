@@ -24,9 +24,10 @@ import type { DocSummary } from '../../shared/buildTree';
 import { folderPathOf } from '../../shared/folderRules';
 import { shareTokenFromPath } from '../../shared/shareLinks';
 import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon, Copy } from './icons';
-import { useHighlights, type Highlight } from './useHighlights';
+import { useHighlights, useAllHighlights, type Highlight } from './useHighlights';
 import { HighlightEditor } from './HighlightEditor';
 import { HighlightList } from './HighlightList';
+import { AllHighlights } from './AllHighlights';
 import { toast, Toaster } from './toast';
 import { extractAnchor, locateAnchor } from '../../shared/anchor';
 import { isActionKeyword } from '../../shared/highlightKeywords';
@@ -93,6 +94,8 @@ export default function App() {
 
   // Highlight feature state
   const { highlights, create, update, remove } = useHighlights(selected?.id ?? null, session);
+  const { all: allHighlights, reloadAll } = useAllHighlights(session);
+  const pendingScrollRef = useRef<string | null>(null);
   const [docText, setDocText] = useState('');
   const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<{ x: number; y: number; bottom: number; anchorRange: { start: number; end: number } } | null>(null);
@@ -208,6 +211,10 @@ export default function App() {
           if (d.ok) next.delete(d.id); else next.add(d.id);
           return next;
         });
+        if (d.ok && pendingScrollRef.current === d.id) {
+          frame?.contentWindow?.postMessage({ type: 'hl:scroll-to', id: d.id }, '*');
+          pendingScrollRef.current = null;
+        }
       }
     }
     window.addEventListener('message', onMsg);
@@ -273,6 +280,11 @@ export default function App() {
     sendThemeToFrame();
   }, [sendThemeToFrame, theme]);
 
+  // keep the "모아보기"(all highlights) list fresh when opened or after edits
+  useEffect(() => {
+    if (sidebarMode === 'highlights') reloadAll();
+  }, [sidebarMode, highlights, reloadAll]);
+
   async function createFromPopover(keywords: string[]) {
     if (!popover) return;
     const a = extractAnchor(docText, popover.anchorRange.start, popover.anchorRange.end);
@@ -283,6 +295,20 @@ export default function App() {
     setEditorPos({ x: popover.x, y: popover.bottom + 6 });
     setPopover(null);
     if (created) setEditing(created);
+  }
+
+  // jump to a highlight, opening its document first if it isn't the current one
+  function jumpToHighlight(docId: string, hid: string) {
+    if (docId === selected?.id) {
+      frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id: hid }, '*');
+      return;
+    }
+    const doc = docs.find((d) => d.id === docId);
+    if (doc) {
+      pendingScrollRef.current = hid; // scrolled once the doc's highlight is re-anchored (hl:anchored)
+      setSelected(doc);
+      setSidebarMode('highlights');
+    }
   }
 
   if (shareToken) {
@@ -316,7 +342,7 @@ export default function App() {
           {loggedIn && (
             <div className="seg seg-primary">
               <button className={sidebarMode === 'docs' ? 'on' : ''} onClick={() => setSidebarMode('docs')}>문서</button>
-              <button className={sidebarMode === 'highlights' ? 'on' : ''} onClick={() => setSidebarMode('highlights')}>🔆 하이라이트{highlights.length ? ` ${highlights.length}` : ''}</button>
+              <button className={sidebarMode === 'highlights' ? 'on' : ''} onClick={() => setSidebarMode('highlights')}>🔆 하이라이트{allHighlights.length ? ` ${allHighlights.length}` : ''}</button>
             </div>
           )}
           {showDocs && (<>
@@ -424,13 +450,10 @@ export default function App() {
 
         ) : (
         <div className="tree sidebar-hl-body">
-          {!selected ? (
-            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>문서를 열면<br />하이라이트가 표시됩니다</div>
-          ) : highlights.length === 0 ? (
-            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>이 문서에 하이라이트가 없습니다</div>
+          {allHighlights.length === 0 ? (
+            <div className="center muted" style={{ padding: 24, textAlign: 'center' }}>아직 하이라이트가 없습니다</div>
           ) : (
-            <HighlightList highlights={highlights} orphanIds={orphanIds}
-              onJump={(id) => frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*')} />
+            <AllHighlights all={allHighlights} docs={docs} currentDocId={selected?.id} onJump={jumpToHighlight} />
           )}
         </div>
         )}
