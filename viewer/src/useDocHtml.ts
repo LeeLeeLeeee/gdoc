@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { DocSummary } from '../../shared/buildTree';
 import { fetchDocHtml } from './supabase';
+import { HIGHLIGHT_BRIDGE_SCRIPT } from './highlightBridge';
 
 const THEME_BRIDGE = `
 <script data-gdoc-theme-bridge>
@@ -37,6 +38,14 @@ const THEME_BRIDGE = `
 })();
 </script>`;
 
+export function injectHighlightBridge(html: string) {
+  if (html.includes('data-gdoc-highlight-bridge')) return html;
+  if (html.includes('</body>')) {
+    return html.replace('</body>', `${HIGHLIGHT_BRIDGE_SCRIPT}\n</body>`);
+  }
+  return `${html}\n${HIGHLIGHT_BRIDGE_SCRIPT}`;
+}
+
 export function injectThemeBridge(html: string) {
   if (html.includes('data-gdoc-theme-bridge') || html.includes("type !== 'set-theme'") || html.includes('type !== "set-theme"')) {
     return html;
@@ -68,7 +77,7 @@ export function useDocHtml(selected: DocSummary | null, session: Session | null)
     setLoadError(false);
     fetchDocHtml(selected, session?.access_token, reload, ac.signal)
       .then((html) => {
-        if (!cancelled) setDocHtml(injectThemeBridge(html));
+        if (!cancelled) setDocHtml(injectHighlightBridge(injectThemeBridge(html)));
       })
       .catch((e) => {
         if (ac.signal.aborted) return;
