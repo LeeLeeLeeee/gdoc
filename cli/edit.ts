@@ -23,6 +23,8 @@ export interface EditOptions {
   ifMatch?: string;
   /** Required to apply a risky transition (doc move or visibility change). */
   confirm?: boolean;
+  /** Skip the full-replace highlight wipe (targeted edits consume selectively instead). */
+  skipHighlightCleanup?: boolean;
 }
 
 export type EditResult = { status: 'updated' | 'moved' | 'unchanged'; id: string; bucket: Bucket; key: string };
@@ -105,7 +107,7 @@ export async function editDoc(
 
   await ports.storage.upload(plan.newBucket, plan.newStorageKey, newHtml, 'text/html; charset=utf-8');
   await ports.db.updateIdentity(row.id, next);
-  await ports.db.deleteHighlights?.(row.id); // full-replace → 해당 문서 하이라이트 정리(편집 전 id 기준)
+  if (!opts.skipHighlightCleanup) await ports.db.deleteHighlights?.(row.id); // full-replace → 하이라이트 정리(편집 전 id 기준)
   if (plan.oldBucket !== plan.newBucket || plan.oldStorageKey !== plan.newStorageKey) {
     await ports.storage.remove(plan.oldBucket, plan.oldStorageKey);
   }

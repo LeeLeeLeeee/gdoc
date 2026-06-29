@@ -175,6 +175,11 @@ export function createSupabasePorts(
       const { error } = await sb.from('highlights').delete().eq('doc_id', docId).in('id', ids);
       if (error) throw new Error(error.message);
     },
+    async listHighlights(docId: string) {
+      const { data, error } = await sb.from('highlights').select('id,exact,note,keywords').eq('doc_id', docId);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; exact: string; note: string | null; keywords: string[] }[];
+    },
   };
 
   return { storage, db };

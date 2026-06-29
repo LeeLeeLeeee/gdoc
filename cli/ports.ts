@@ -48,4 +48,6 @@ export interface DbPort {
   deleteHighlights?(docId: string): Promise<void>;
   /** Remove specific highlights (targeted-edit consume). */
   deleteHighlightsByIds?(docId: string, ids: string[]): Promise<void>;
+  /** Read a doc's highlights (instruction edit). */
+  listHighlights?(docId: string): Promise<{ id: string; exact: string; note: string | null; keywords: string[] }[]>;
 }

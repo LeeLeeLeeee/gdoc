@@ -15,6 +15,7 @@ import { DOC_TYPES, type GdocMeta } from '../shared/schema';
 import type { Bucket } from './ports';
 import { moveFilePath, renameFilePath, renameFolderDocs, updateRemoteDoc } from './manage';
 import { editDoc, getDocHtml, revertDoc } from './edit';
+import { runInstructionEdit, defaultRunner } from './instruction';
 import type { GdocMetaPatch } from '../shared/metaPatch';
 
 /** Ask a local engine to slot a doc into the existing folder tree. null if unavailable. */
@@ -236,9 +237,26 @@ async function runGet(args: string[]) {
 async function runEdit(args: string[]) {
   const dryRun = args.includes('--dry-run');
   const confirm = args.includes('--confirm');
+  const fromHighlights = args.includes('--from-highlights');
   const file = valueAfter(args, '--file');
   const ifMatch = valueAfter(args, '--if-match');
-  const [ref] = positionalArgs(args, ['--file', '--if-match']);
+  const instruction = valueAfter(args, '--instruction');
+  const engine = valueAfter(args, '--engine') as 'codex' | 'claude' | undefined;
+  const [ref] = positionalArgs(args, ['--file', '--if-match', '--instruction', '--engine']);
+
+  // LLM-driven edit (instruction / from highlights)
+  if (instruction || fromHighlights) {
+    if (!ref) throw new Error('사용법: gdoc edit <문서 id|path> (--instruction "..." | --from-highlights) [--engine codex|claude] [--if-match <hash>] [--confirm] [--dry-run]');
+    const out = await runInstructionEdit(ref, { instruction, fromHighlights, dryRun, ifMatch, confirm }, createPortsFromEnv(), defaultRunner(engine));
+    if (out.status === 'preview') {
+      process.stdout.write(out.newHtml);
+      console.error(`\n[dry-run] 미리보기 — 적용하면 하이라이트 ${out.usedIds.length}개 소비`);
+    } else {
+      console.log(`✓ ${out.id} (${out.status}, 하이라이트 ${out.usedIds.length}개 소비)`);
+    }
+    return;
+  }
+
   if (!ref || !file) throw new Error('사용법: gdoc edit <문서 id|path> --file <경로> [--if-match <hash>] [--confirm] [--dry-run]');
   const html = await readFile(file, 'utf8');
   const out = await editDoc(ref, html, createPortsFromEnv(), { dryRun, ifMatch, confirm });
@@ -272,6 +290,8 @@ const USAGE = `gdoc — 개인 HTML 문서 관리 CLI
   gdoc upload <파일|폴더> [--auto-path] [--dry-run]   HTML을 Supabase에 발행
   gdoc get <문서 id|path>                              현재 문서 HTML을 stdout으로 출력
   gdoc edit <문서 id|path> --file <경로> [flags]       문서 본문을 새 HTML로 교체
+  gdoc edit <문서 id|path> --instruction "..." [flags]  LLM(codex/claude)으로 편집
+  gdoc edit <문서 id|path> --from-highlights [flags]    편집/삭제 하이라이트를 지시로 LLM 편집
   gdoc revert <문서 id|path> [--dry-run]               직전 편집 본문으로 되돌리기
   gdoc mv <문서 id|path> <새 path> [--dry-run]         문서 path 이동
   gdoc move-file <문서 id|path> <폴더> [--dry-run]     문서를 폴더로 이동
@@ -300,7 +320,7 @@ const USAGE = `gdoc — 개인 HTML 문서 관리 CLI
 const ALLOWED_FLAGS: Record<string, string[]> = {
   upload: ['--auto-path', '--dry-run'],
   get: [],
-  edit: ['--file', '--if-match', '--confirm', '--dry-run'],
+  edit: ['--file', '--if-match', '--confirm', '--dry-run', '--instruction', '--from-highlights', '--engine'],
   revert: ['--dry-run'],
   mv: ['--dry-run'],
   'move-file': ['--dry-run'],
