@@ -68,5 +68,9 @@ export async function uploadDoc(html: string, ports: UploadPorts, ctx: UploadCtx
     contentHash: hash,
   });
 
+  if (status === 'updated') {
+    await ports.db.deleteHighlights?.(id); // 기존 문서 전체 교체 → 하이라이트 정리
+  }
+
   return { status, id, bucket, key };
 }

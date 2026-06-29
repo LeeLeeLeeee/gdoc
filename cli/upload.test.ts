@@ -31,6 +31,7 @@ function makeFakes() {
 
   const db = {
     rows: [] as DocumentRow[],
+    deletedHighlightsFor: [] as string[],
     async upsert(row: DocumentRow) {
       this.rows.push(row);
     },
@@ -48,7 +49,10 @@ function makeFakes() {
       if (index === -1) this.rows.push(row);
       else this.rows[index] = row;
     },
-  } satisfies DbPort & { rows: DocumentRow[] };
+    async deleteHighlights(docId: string) {
+      this.deletedHighlightsFor.push(docId);
+    },
+  } satisfies DbPort & { rows: DocumentRow[]; deletedHighlightsFor: string[] };
 
   return { storage, db };
 }
@@ -135,5 +139,20 @@ describe('uploadDoc', () => {
     const out = await uploadDoc(html({ path: undefined }), { storage, db }, ctx);
     if (out.status === 'skip') throw new Error(`expected upload, got skip: ${out.reason}`);
     expect(out.id).toBe('auto/assigned/here');
+  });
+
+  it('clears highlights when an existing doc is updated (re-upload = full replace)', async () => {
+    const { storage, db } = makeFakes();
+    // seed an existing row with a different hash so this counts as "updated"
+    const ctx: UploadCtx = { byId: new Map([[ID, 'old-hash']]), byHash: new Map() };
+    const out = await uploadDoc(html(), { storage, db }, ctx);
+    expect(out.status).toBe('updated');
+    expect(db.deletedHighlightsFor).toEqual([ID]);
+  });
+
+  it('does NOT clear highlights for a brand-new doc', async () => {
+    const { storage, db } = makeFakes();
+    await uploadDoc(html(), { storage, db }, emptyCtx());
+    expect(db.deletedHighlightsFor).toEqual([]);
   });
 });
