@@ -434,7 +434,7 @@ export default function App() {
         ) : selected ? (
           <div className="doc-show" key={selected.id}>
             <div className="doc-head">
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="doc-head-main">
                 {crumb && <div className="crumb">{crumb}</div>}
                 <div className="title">{selected.title}</div>
                 <div className="doc-updated">업데이트 {formatUpdatedAt(selected.updatedAt)}</div>
