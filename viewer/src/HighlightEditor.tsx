@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { HIGHLIGHT_KEYWORDS, isActionKeyword } from '../../shared/highlightKeywords';
 import type { Highlight } from './useHighlights';
 
@@ -19,8 +19,25 @@ export function HighlightEditor({ highlight, style, onSave, onDelete, onClose }:
 
   const save = () => { onSave({ note, keywords }); onClose(); };
 
+  // Keep the floating editor fully inside the viewport (mobile: avoid off-screen).
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const m = 8;
+    const r = el.getBoundingClientRect();
+    let left = r.left;
+    let top = r.top;
+    if (left + r.width > window.innerWidth - m) left = window.innerWidth - m - r.width;
+    if (left < m) left = m;
+    if (top + r.height > window.innerHeight - m) top = window.innerHeight - m - r.height;
+    if (top < m) top = m;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  });
+
   return (
-    <div className="hl-editor" role="dialog" aria-label="하이라이트 주석" style={style}>
+    <div className="hl-editor" ref={ref} role="dialog" aria-label="하이라이트 주석" style={style}>
       <blockquote className="hl-quote">"{highlight.exact.slice(0, 120)}"</blockquote>
       <div className="hl-kw-buttons">
         {HIGHLIGHT_KEYWORDS.map((k) => (

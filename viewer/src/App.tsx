@@ -183,8 +183,11 @@ export default function App() {
       }
       if (d.type === 'hl:fulltext') setDocText(d.text || '');
       if (d.type === 'hl:selected' && rectOffset) {
+        const m = 8;
+        const estW = Math.min(300, window.innerWidth - 2 * m);
+        const rawX = rectOffset.left + d.rect.x;
         setPopover({
-          x: rectOffset.left + d.rect.x,
+          x: Math.max(m, Math.min(rawX, window.innerWidth - estW - m)),
           y: rectOffset.top + d.rect.y,
           bottom: rectOffset.top + d.rect.y + d.rect.h,
           anchorRange: { start: d.anchor.start, end: d.anchor.end },

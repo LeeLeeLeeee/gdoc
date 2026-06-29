@@ -538,8 +538,8 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
   .app.show-detail .sidebar { display: none; }
   .app.show-list .pane { display: none; }
 
-  .mobile-back { display: inline-flex; position: absolute; top: 12px; left: 12px; z-index: 30; }
-  .doc-head { padding-left: 96px; flex-wrap: wrap; row-gap: 8px; }
+  .mobile-back { display: inline-flex; position: static; align-self: flex-start; margin: 10px 0 0 14px; }
+  .doc-head { flex-wrap: wrap; row-gap: 8px; }
   .doc-head-main { flex-basis: 100%; }
 
   /* iOS auto-zooms when a focused input's font is < 16px — bump it on mobile only */
@@ -558,7 +558,7 @@ mark.hl { background: rgba(255,176,32,.28); color: inherit; border-radius: 3px; 
 }
 
 /* ---- highlights (parent UI only — mark styling is injected into the iframe) ---- */
-.hl-popover { position: fixed; z-index: 60; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); transform: translateY(-112%); }
+.hl-popover { position: fixed; z-index: 60; max-width: calc(100vw - 16px); display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); transform: translateY(-112%); }
 .hl-popover button { font-size: 12.5px; font-weight: 700; padding: 4px 9px; border-radius: var(--radius-xs); border: 1px solid var(--border-default); background: var(--surface-hover); color: var(--text-default); cursor: pointer; }
 .hl-popover button:hover { color: var(--text-strong); border-color: var(--brand); }
 .hl-popover .hl-pop-main { color: var(--brand); }
