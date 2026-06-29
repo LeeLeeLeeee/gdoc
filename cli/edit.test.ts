@@ -56,6 +56,7 @@ function makeFakes(seedHtml = docHtml()) {
 
   const db = {
     rows: [seedRow] as DocumentRow[],
+    deletedHighlightsFor: [] as string[],
     async upsert(row: DocumentRow) {
       const i = this.rows.findIndex((r) => r.id === row.id);
       if (i === -1) this.rows.push(row);
@@ -75,7 +76,10 @@ function makeFakes(seedHtml = docHtml()) {
       if (i === -1) this.rows.push(row);
       else this.rows[i] = row;
     },
-  } satisfies DbPort & { rows: DocumentRow[] };
+    async deleteHighlights(docId: string) {
+      this.deletedHighlightsFor.push(docId);
+    },
+  } satisfies DbPort & { rows: DocumentRow[]; deletedHighlightsFor: string[] };
 
   store.set(`private/${KEY}`, seedHtml);
   return { storage, db, removed, store };
@@ -187,6 +191,25 @@ describe('editDoc', () => {
     await editDoc(ID, docHtml('V2'), { storage, db });
     expect(store.get(`private/${backupKey(KEY)}`)).toContain('V1');
     expect(store.get(`private/${KEY}`)).toContain('V2');
+  });
+
+  it('clears highlights for the doc after an in-place content replace', async () => {
+    const { storage, db } = makeFakes();
+    await editDoc(ID, docHtml('EDITED'), { storage, db });
+    expect(db.deletedHighlightsFor).toEqual([ID]);
+  });
+
+  it('clears highlights keyed by the OLD id on a confirmed move', async () => {
+    const { storage, db } = makeFakes();
+    const next = docHtml('BODY', { path: 'Playground/Tech Notes/Renamed' });
+    await editDoc(ID, next, { storage, db }, { confirm: true });
+    expect(db.deletedHighlightsFor).toEqual([ID]); // old id
+  });
+
+  it('does NOT clear highlights on a no-op (unchanged) edit', async () => {
+    const { storage, db } = makeFakes();
+    await editDoc(ID, docHtml(), { storage, db });
+    expect(db.deletedHighlightsFor).toEqual([]);
   });
 });
 

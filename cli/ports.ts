@@ -44,4 +44,8 @@ export interface DbPort {
   createFolder?(path: string, ownerUid?: string): Promise<void>;
   renameFolder?(oldPath: string, newPath: string, ownerUid?: string): Promise<void>;
   deleteFolder?(path: string): Promise<void>;
+  /** Remove all highlights for a doc (full-replace cleanup). */
+  deleteHighlights?(docId: string): Promise<void>;
+  /** Remove specific highlights (targeted-edit consume). */
+  deleteHighlightsByIds?(docId: string, ids: string[]): Promise<void>;
 }

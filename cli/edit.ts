@@ -105,10 +105,23 @@ export async function editDoc(
 
   await ports.storage.upload(plan.newBucket, plan.newStorageKey, newHtml, 'text/html; charset=utf-8');
   await ports.db.updateIdentity(row.id, next);
+  await ports.db.deleteHighlights?.(row.id); // full-replace → 해당 문서 하이라이트 정리(편집 전 id 기준)
   if (plan.oldBucket !== plan.newBucket || plan.oldStorageKey !== plan.newStorageKey) {
     await ports.storage.remove(plan.oldBucket, plan.oldStorageKey);
   }
   return { status, id: plan.newId, bucket: plan.newBucket, key: plan.newStorageKey };
+}
+
+/**
+ * 미래 `--instruction` 타깃 편집용 계약: 편집에 실제 사용된 하이라이트만 삭제.
+ * 전체 교체가 아닌 부분 편집에서 호출한다(editDoc의 full-replace 정리와 구분).
+ */
+export async function consumeHighlights(
+  docId: string,
+  usedHighlightIds: string[],
+  ports: UploadPorts,
+): Promise<void> {
+  await ports.db.deleteHighlightsByIds?.(docId, usedHighlightIds);
 }
 
 /**

@@ -166,6 +166,15 @@ export function createSupabasePorts(
       const { error } = await sb.from('document_folders').delete().eq('path', path);
       if (error) throw error;
     },
+    async deleteHighlights(docId: string) {
+      const { error } = await sb.from('highlights').delete().eq('doc_id', docId);
+      if (error) throw new Error(error.message);
+    },
+    async deleteHighlightsByIds(docId: string, ids: string[]) {
+      if (ids.length === 0) return;
+      const { error } = await sb.from('highlights').delete().eq('doc_id', docId).in('id', ids);
+      if (error) throw new Error(error.message);
+    },
   };
 
   return { storage, db };
