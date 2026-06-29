@@ -17,6 +17,8 @@ export function HighlightEditor({ highlight, style, onSave, onDelete, onClose }:
   const toggle = (k: string) =>
     setKeywords((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
 
+  const save = () => { onSave({ note, keywords }); onClose(); };
+
   return (
     <div className="hl-editor" role="dialog" aria-label="하이라이트 주석" style={style}>
       <blockquote className="hl-quote">"{highlight.exact.slice(0, 120)}"</blockquote>
@@ -41,12 +43,14 @@ export function HighlightEditor({ highlight, style, onSave, onDelete, onClose }:
       </div>
       <textarea
         className="hl-note"
-        placeholder="메모(왜 표시했는지)"
+        placeholder="메모(왜 표시했는지) · Ctrl+Enter로 저장"
         value={note}
+        autoFocus
         onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } }}
       />
       <div className="hl-editor-actions">
-        <button type="button" className="btn" onClick={() => { onSave({ note, keywords }); onClose(); }}>저장</button>
+        <button type="button" className="btn" onClick={save}>저장</button>
         <button type="button" className="btn btn-ghost" onClick={() => { onDelete(); onClose(); }}>삭제</button>
       </div>
     </div>

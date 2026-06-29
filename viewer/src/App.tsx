@@ -27,6 +27,7 @@ import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, Link
 import { useHighlights, type Highlight } from './useHighlights';
 import { HighlightEditor } from './HighlightEditor';
 import { HighlightList } from './HighlightList';
+import { toast, Toaster } from './toast';
 import { extractAnchor, locateAnchor } from '../../shared/anchor';
 import { isActionKeyword } from '../../shared/highlightKeywords';
 
@@ -620,14 +621,16 @@ export default function App() {
         <HighlightEditor
           highlight={editing}
           style={editorPos ? { left: editorPos.x, top: editorPos.y } : undefined}
-          onSave={(patch) => update(editing.id, patch)}
+          onSave={(patch) => { update(editing.id, patch).then(() => toast('저장됨')).catch(() => toast('저장 실패', 'error')); }}
           onDelete={() => {
-            remove(editing.id);
-            frameRef.current?.contentWindow?.postMessage({ type: 'hl:remove', id: editing.id }, '*');
+            const id = editing.id;
+            remove(id).then(() => toast('삭제됨')).catch(() => toast('삭제 실패', 'error'));
+            frameRef.current?.contentWindow?.postMessage({ type: 'hl:remove', id }, '*');
           }}
           onClose={() => { setEditing(null); setEditorPos(null); }}
         />
       )}
+      <Toaster />
     </div>
   );
 }

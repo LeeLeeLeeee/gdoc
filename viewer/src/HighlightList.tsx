@@ -22,11 +22,14 @@ export function HighlightList({ highlights, orphanIds, onJump, compact }: Props)
             className={`hl-item ${orphan ? 'orphan' : ''}`}
             disabled={orphan}
             onClick={() => onJump(h.id)}
-            title={orphan ? '본문에서 위치를 찾지 못함(고아)' : h.note ?? ''}
+            title={orphan ? '본문에서 위치를 찾지 못함(고아)' : h.exact}
           >
-            {tag && <span className={`hl-chip ${isActionKeyword(tag) ? 'action' : 'info'}`}>{tag}</span>}
-            <span className="hl-snippet">{(h.note || h.exact).slice(0, 40)}</span>
-            {orphan && <span className="hl-orphan">⚠</span>}
+            <span className="hl-item-head">
+              {tag && <span className={`hl-chip ${isActionKeyword(tag) ? 'action' : 'info'}`}>{tag}</span>}
+              <span className="hl-snippet">{h.exact.slice(0, 60)}</span>
+              {orphan && <span className="hl-orphan">⚠</span>}
+            </span>
+            {h.note && <span className="hl-item-note">{h.note}</span>}
           </button>
         );
       })}
