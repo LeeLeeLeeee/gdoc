@@ -23,7 +23,7 @@ import { sortDocs, type SortKey, type SortDir } from '../../shared/sortDocs';
 import type { DocSummary } from '../../shared/buildTree';
 import { folderPathOf } from '../../shared/folderRules';
 import { shareTokenFromPath } from '../../shared/shareLinks';
-import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon } from './icons';
+import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon, Copy } from './icons';
 import { useHighlights, type Highlight } from './useHighlights';
 import { HighlightEditor } from './HighlightEditor';
 import { HighlightList } from './HighlightList';
@@ -450,6 +450,17 @@ export default function App() {
                 title="문서 새로고침"
               >
                 <Refresh size={14} />
+              </button>
+              <button
+                className="icon-btn"
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(selected.id); toast('ID 복사됨'); }
+                  catch { toast('복사 실패', 'error'); }
+                }}
+                aria-label="문서 ID 복사"
+                title={`ID 복사: ${selected.id}`}
+              >
+                <Copy size={14} />
               </button>
               {canManage && (
                 <button

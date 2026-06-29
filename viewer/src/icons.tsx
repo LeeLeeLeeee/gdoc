@@ -77,3 +77,6 @@ export const Pencil = ({ size = 14, color }: P) => (
 export const LinkIcon = ({ size = 14, color }: P) => (
   <svg {...s(size)} {...stroke(color)}><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" /></svg>
 );
+export const Copy = ({ size = 14, color }: P) => (
+  <svg {...s(size)} {...stroke(color)}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+);
