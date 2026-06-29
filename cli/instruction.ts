@@ -62,9 +62,10 @@ export type Runner = (prompt: string) => Promise<string | null>;
 
 /** Default runner: use the requested local engine, or try codex then claude. */
 export function defaultRunner(engine?: 'codex' | 'claude'): Runner {
+  const T = 300_000; // document edits emit a full HTML doc — the 120s default is too short
   return async (prompt) => {
-    if (engine) return runEngine(engine, prompt);
-    return (await runEngine('codex', prompt)) ?? (await runEngine('claude', prompt));
+    if (engine) return runEngine(engine, prompt, T);
+    return (await runEngine('codex', prompt, T)) ?? (await runEngine('claude', prompt, T));
   };
 }
 
