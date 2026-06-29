@@ -96,25 +96,33 @@ create index highlights_doc_owner_idx on highlights (doc_id, owner_uid);
 
 **부모 → iframe**
 - `hl:set-enabled` `{ on: boolean }` — 로그인 여부에 따라 선택/팝오버 활성화
-- `hl:render` `{ highlights: [{ id, exact, prefix, suffix, keywords }] }` — 저장된 것 그리기(재앵커)
+- `hl:render` `{ located: [{ id, start, end, cls }] }` — 부모가 `locateAnchor`로 이미 재배치한 **평문 오프셋**을 받아 `<mark>`로 래핑(앵커 검색은 부모, 브리지는 오프셋→Range 매핑만)
 - `hl:scroll-to` `{ id }` — 해당 마크로 스크롤 + 깜빡임
 - `hl:remove` `{ id }` — 마크 제거
+- `hl:fulltext-request` `{}` — 본문 평문 요청(부모가 extract/locate에 사용)
 
 **iframe → 부모**
-- `hl:selected` `{ anchor: { exact, prefix, suffix, textPos }, rect }` — 드래그 끝 → 부모가 rect 위에 팝오버 표시
+- `hl:ready` `{}` — 브리지 로드 완료(부모가 `hl:set-enabled` + `hl:fulltext-request`를 전송)
+- `hl:fulltext` `{ text }` — 본문 평문 응답
+- `hl:selected` `{ anchor: { start, end }, rect }` — 드래그 끝, **평문 오프셋만** 전달(`exact/prefix/suffix` 추출은 부모가 docText로 수행) → 부모가 rect 위에 팝오버 표시
 - `hl:clicked` `{ id, rect }` — 기존 마크 클릭 → 부모가 해당 주석 에디터 열기 + 사이드바 강조
 - `hl:anchored` `{ id, ok: boolean }` — 렌더 시 재배치 성공/실패(실패=고아) 보고
 
 `rect`는 iframe 내부 좌표 → 부모가 iframe의 bounding offset을 더해 오버레이 위치 계산.
 
+**설계 노트(구현 정합):** 브리지는 텍스트-인용 앵커를 모른다 — **평문 오프셋만** 다룬다. `exact/prefix/suffix` 추출(`extractAnchor`)과 재배치(`locateAnchor`)는 모두 **부모**(`shared/anchor.ts`)가 수행해 단위 테스트가 가능하다. 브리지의 `fullText`/`selectionOffsets`/`offsetToRange` 세 함수는 **`<script>`/`<style>`를 제외한 동일 텍스트-노드 도메인**을 공유한다(과거 `innerText` vs `textContent` 도메인 불일치로 실제 멀티블록 문서에서 마크가 어긋나던 버그를 도메인 통일로 해결).
+
 ## 9. 앵커링 알고리즘 (텍스트-인용)
 
-- **선택 시**: `Range`에서 `exact`(선택 문자열), `prefix`/`suffix`(앞뒤 ~32자), `text_pos`(문서 평문 내 문자 오프셋, 폴백) 추출.
-- **렌더 시**: 문서 평문에서 `prefix + exact + suffix`로 검색 →
-  - 유일 매치 → 그 Range를 `<mark data-hl-id>`로 래핑.
-  - 다중 매치 → prefix/suffix/`text_pos`로 판별.
-  - 매치 없음 → `hl:anchored {ok:false}` → 부모가 **고아(orphaned)** 로 표시.
-- 순수 함수(`extractAnchor(range)`, `locateAnchor(text, anchor)`)로 분리 → 단위 테스트 가능.
+앵커 추출·재배치는 **부모**가 `shared/anchor.ts`의 순수 함수로 수행한다. 브리지는 평문 오프셋만 주고받는다.
+
+- **선택 시**: 브리지가 `hl:selected {start,end}`(평문 오프셋) 전송 → 부모가 `extractAnchor(docText, start, end)`로 `exact`/`prefix`/`suffix`(앞뒤 ~32자)/`text_pos`(폴백 오프셋) 추출 → `create(...)`.
+- **렌더 시**: 부모가 각 하이라이트에 `locateAnchor(docText, { exact, prefix, suffix, textPos })` 실행 →
+  - 매치 → `{ id, start, end, cls }`로 `hl:render`에 실어 전송 → 브리지가 `offsetToRange`로 `<mark data-hl-id>` 래핑.
+  - 다중 매치는 `locateAnchor`가 prefix/suffix + `text_pos` 근접도로 판별.
+  - 매치 없음 → 부모가 **고아(orphaned)** 로 표시(렌더 제외), 브리지는 `hl:anchored {ok:false}` 보고.
+- `docText`는 브리지가 `hl:fulltext`로 제공한 본문 평문(= `<script>`/`<style>` 제외 텍스트-노드 도메인). 부모의 `extractAnchor`/`locateAnchor`와 브리지의 `offsetToRange`가 **같은 도메인**을 써야 정합한다.
+- 순수 함수 `extractAnchor(fullText, start, end, ctx?)`, `locateAnchor(fullText, anchor)`는 `shared/anchor.ts`에 위치 → vitest 단위 테스트(`shared/anchor.test.ts`).
 
 ## 10. UI (로그인 시에만 노출)
 
