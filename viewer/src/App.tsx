@@ -24,6 +24,11 @@ import type { DocSummary } from '../../shared/buildTree';
 import { folderPathOf } from '../../shared/folderRules';
 import { shareTokenFromPath } from '../../shared/shareLinks';
 import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon } from './icons';
+import { useHighlights, type Highlight } from './useHighlights';
+import { HighlightEditor } from './HighlightEditor';
+import { HighlightList } from './HighlightList';
+import { extractAnchor, locateAnchor } from '../../shared/anchor';
+import { isActionKeyword } from '../../shared/highlightKeywords';
 
 const loadGraphView = () => import('./GraphView').then((m) => ({ default: m.GraphView }));
 const GraphView = lazy(loadGraphView);
@@ -84,6 +89,14 @@ export default function App() {
   const { docHtml, loadError, retry } = useDocHtml(selected, session);
   const { index: searchIndex } = useSearchIndex(session, ready);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Highlight feature state
+  const { highlights, create, update, remove } = useHighlights(selected?.id ?? null, session);
+  const [docText, setDocText] = useState('');
+  const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
+  const [popover, setPopover] = useState<{ x: number; y: number; anchorRange: { start: number; end: number } } | null>(null);
+  const [editing, setEditing] = useState<Highlight | null>(null);
+  const loggedIn = !!session;
 
   // Debounce the search box: while typing, show a "typing" indicator; once settled,
   // apply the term and flash a "done" check that fades after a moment.
@@ -153,6 +166,55 @@ export default function App() {
   const [frameReady, setFrameReady] = useState(false);
   useEffect(() => { setFrameReady(false); }, [blobUrl]);
 
+  // Bridge: listen for iframe highlight messages
+  useEffect(() => {
+    function onMsg(ev: MessageEvent) {
+      const d = ev.data || {};
+      const frame = frameRef.current;
+      const rectOffset = frame?.getBoundingClientRect();
+      if (d.type === 'hl:ready') {
+        frame?.contentWindow?.postMessage({ type: 'hl:set-enabled', on: loggedIn }, '*');
+        frame?.contentWindow?.postMessage({ type: 'hl:fulltext-request' }, '*');
+      }
+      if (d.type === 'hl:fulltext') setDocText(d.text || '');
+      if (d.type === 'hl:selected' && rectOffset) {
+        setPopover({
+          x: rectOffset.left + d.rect.x,
+          y: rectOffset.top + d.rect.y,
+          anchorRange: { start: d.anchor.start, end: d.anchor.end },
+        });
+      }
+      if (d.type === 'hl:clicked') {
+        const h = highlights.find((x) => x.id === d.id);
+        if (h) setEditing(h);
+      }
+      if (d.type === 'hl:anchored') {
+        setOrphanIds((cur) => {
+          const next = new Set(cur);
+          if (d.ok) next.delete(d.id); else next.add(d.id);
+          return next;
+        });
+      }
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [highlights, loggedIn]);
+
+  // Re-anchor: send stored highlights to iframe after docText/frameReady changes
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !docText || !loggedIn) return;
+    const located = highlights
+      .map((h) => {
+        const hit = locateAnchor(docText, {
+          exact: h.exact, prefix: h.prefix ?? '', suffix: h.suffix ?? '', textPos: h.text_pos ?? 0,
+        });
+        return hit ? { id: h.id, start: hit.start, end: hit.end, cls: isActionKeyword(h.keywords[0]) ? 'action' : 'info' } : null;
+      })
+      .filter(Boolean);
+    frame.contentWindow?.postMessage({ type: 'hl:render', located }, '*');
+  }, [highlights, docText, loggedIn, frameReady]);
+
   const hasFilter = q.trim() !== '' || debouncedName.trim() !== '';
   const countLabel = !ready ? '문서' : session ? `문서 · ${docs.length}` : `문서 · 공개 ${docs.length}`;
   const listLoading = !ready || loading || foldersLoading;
@@ -181,6 +243,17 @@ export default function App() {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     sendThemeToFrame();
   }, [sendThemeToFrame, theme]);
+
+  async function createFromPopover(keywords: string[]) {
+    if (!popover) return;
+    const a = extractAnchor(docText, popover.anchorRange.start, popover.anchorRange.end);
+    const created = await create({
+      doc_id: selected!.id, exact: a.exact, prefix: a.prefix, suffix: a.suffix,
+      text_pos: a.textPos, note: null, keywords,
+    });
+    setPopover(null);
+    if (created) setEditing(created);
+  }
 
   if (shareToken) {
     return <SharedDocPage token={shareToken} />;
@@ -309,6 +382,14 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {loggedIn && selected && (
+          <div className="sidebar-hl">
+            <div className="sidebar-hl-title">🔆 하이라이트 ({highlights.length})</div>
+            <HighlightList highlights={highlights} orphanIds={orphanIds}
+              onJump={(id) => frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*')} />
+          </div>
+        )}
       </aside>
 
       <main className="pane">
@@ -367,6 +448,10 @@ export default function App() {
               <span className={`badge ${selected.visibility === 'private' ? 'badge-amber' : 'badge-neutral'}`}>
                 {selected.visibility === 'private' ? '비공개' : '공개'}
               </span>
+              {loggedIn && (
+                <HighlightList highlights={highlights} orphanIds={orphanIds} compact
+                  onJump={(id) => frameRef.current?.contentWindow?.postMessage({ type: 'hl:scroll-to', id }, '*')} />
+              )}
             </div>
             <div className="doc-reader">
               {loadError ? (
@@ -490,6 +575,27 @@ export default function App() {
       )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+
+      {loggedIn && popover && (
+        <div className="hl-popover" style={{ position: 'fixed', left: popover.x, top: popover.y }}>
+          <button className="hl-pop-main" onClick={() => createFromPopover([])}>🔆 하이라이트</button>
+          {['편집', '삭제', '궁금', '중요', '확인'].map((k) => (
+            <button key={k} className="hl-pop-kw" onClick={() => createFromPopover([k])}>{k}</button>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <HighlightEditor
+          highlight={editing}
+          onSave={(patch) => update(editing.id, patch)}
+          onDelete={() => {
+            remove(editing.id);
+            frameRef.current?.contentWindow?.postMessage({ type: 'hl:remove', id: editing.id }, '*');
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
