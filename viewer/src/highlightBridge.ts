@@ -6,14 +6,41 @@ export const HIGHLIGHT_BRIDGE_SCRIPT = `
   var enabled = false;
   var marks = {}; // id -> [<mark> nodes]
 
-  function fullText(){ return document.body ? document.body.innerText : ''; }
-
-  // ---- 평문 오프셋 ↔ DOM Range 매핑 (innerText 기준 근사) ----
-  function offsetToRange(start, end){
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-    var pos = 0, range = document.createRange(), set = { s:false, e:false };
+  // ---- <script>/<style> 내부 텍스트 노드를 제외한 body 텍스트 노드 목록 ----
+  // fullText, selectionOffsets, offsetToRange 세 함수가 동일 도메인을 공유한다.
+  function filteredTextNodes(){
+    var nodes = [];
+    var walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node){
+          var p = node.parentNode;
+          while (p && p !== document.body){
+            var tag = p.nodeName.toUpperCase();
+            if (tag === 'SCRIPT' || tag === 'STYLE') return NodeFilter.FILTER_REJECT;
+            p = p.parentNode;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
     var node;
-    while ((node = walker.nextNode())){
+    while ((node = walker.nextNode())) nodes.push(node);
+    return nodes;
+  }
+
+  function fullText(){
+    if (!document.body) return '';
+    return filteredTextNodes().map(function(n){ return n.nodeValue; }).join('');
+  }
+
+  // ---- 평문 오프셋 ↔ DOM Range 매핑 (script/style 제외 텍스트 노드 기준) ----
+  function offsetToRange(start, end){
+    var nodes = filteredTextNodes();
+    var pos = 0, range = document.createRange(), set = { s:false, e:false };
+    for (var i = 0; i < nodes.length; i++){
+      var node = nodes[i];
       var len = node.nodeValue.length;
       if (!set.s && start <= pos + len){ range.setStart(node, Math.max(0, start - pos)); set.s = true; }
       if (!set.e && end <= pos + len){ range.setEnd(node, Math.max(0, end - pos)); set.e = true; break; }
@@ -26,10 +53,18 @@ export const HIGHLIGHT_BRIDGE_SCRIPT = `
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
     var range = sel.getRangeAt(0);
-    var pre = document.createRange();
-    pre.selectNodeContents(document.body);
-    pre.setEnd(range.startContainer, range.startOffset);
-    var start = pre.toString().length;
+    // start 오프셋: 필터링된 텍스트 노드를 순서대로 합산해 선택 시작점까지의 길이를 구한다.
+    // (selectNodeContents+toString 방식은 script/style 텍스트를 포함해 도메인이 어긋난다.)
+    var nodes = filteredTextNodes();
+    var start = 0;
+    for (var i = 0; i < nodes.length; i++){
+      var node = nodes[i];
+      if (node === range.startContainer){
+        start += range.startOffset;
+        break;
+      }
+      start += node.nodeValue.length;
+    }
     return { start: start, end: start + range.toString().length, text: range.toString(), rect: range.getBoundingClientRect() };
   }
 
@@ -74,7 +109,6 @@ export const HIGHLIGHT_BRIDGE_SCRIPT = `
     if (d.type === 'hl:set-enabled'){ enabled = !!d.on; if (!enabled){ Object.keys(marks).forEach(clear); } return; }
     if (d.type === 'hl:render'){
       Object.keys(marks).forEach(clear);
-      var text = fullText();
       (d.located || []).forEach(function(h){
         var range = offsetToRange(h.start, h.end);
         if (range){ wrap(range, h.id, h.cls); send('hl:anchored', { id: h.id, ok: true }); }
