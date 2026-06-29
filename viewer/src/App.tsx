@@ -96,6 +96,7 @@ export default function App() {
   const [docText, setDocText] = useState('');
   const [orphanIds, setOrphanIds] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<{ x: number; y: number; bottom: number; anchorRange: { start: number; end: number } } | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Highlight | null>(null);
   const [editorPos, setEditorPos] = useState<{ x: number; y: number } | null>(null);
   const [hlMenuOpen, setHlMenuOpen] = useState(false);
@@ -182,6 +183,7 @@ export default function App() {
         frame?.contentWindow?.postMessage({ type: 'hl:fulltext-request' }, '*');
       }
       if (d.type === 'hl:fulltext') setDocText(d.text || '');
+      if (d.type === 'hl:dismiss') setPopover(null);
       if (d.type === 'hl:selected' && rectOffset) {
         const m = 8;
         const estW = Math.min(300, window.innerWidth - 2 * m);
@@ -211,6 +213,21 @@ export default function App() {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [highlights, loggedIn]);
+
+  // dismiss the selection popover on outside-click (parent area) or Escape
+  useEffect(() => {
+    if (!popover) return;
+    const onDown = (e: MouseEvent) => {
+      if (!popoverRef.current?.contains(e.target as Node)) setPopover(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null); };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [popover]);
 
   // Re-anchor: send stored highlights to iframe after docText/frameReady changes
   useEffect(() => {
@@ -623,7 +640,7 @@ export default function App() {
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
       {loggedIn && popover && (
-        <div className="hl-popover" style={{ position: 'fixed', left: popover.x, top: popover.y }}>
+        <div className="hl-popover" ref={popoverRef} style={{ position: 'fixed', left: popover.x, top: popover.y }}>
           <button className="hl-pop-main" onClick={() => createFromPopover([])}>🔆 하이라이트</button>
           {['편집', '삭제', '궁금', '중요', '확인'].map((k) => (
             <button key={k} className="hl-pop-kw" onClick={() => createFromPopover([k])}>{k}</button>

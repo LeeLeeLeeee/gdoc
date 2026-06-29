@@ -77,6 +77,12 @@ mark.gdoc-hl.flash { outline: 2px solid rgba(110,173,255,.95); outline-offset: 1
 
   function send(type, payload){ parent.postMessage(Object.assign({ type: type }, payload), '*'); }
 
+  // any press inside the doc dismisses an open selection popover (a new drag
+  // re-opens it on mouseup); lets clicks on the document close it.
+  document.addEventListener('mousedown', function(){
+    if (enabled) send('hl:dismiss', {});
+  });
+
   document.addEventListener('mouseup', function(){
     if (!enabled) return;
     var s = selectionOffsets();
