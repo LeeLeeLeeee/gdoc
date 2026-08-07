@@ -41,9 +41,13 @@ export interface DbPort {
   getByIdOrPath(ref: string): Promise<DocumentRow | null>;
   exists(id: string): Promise<boolean>;
   updateIdentity(oldId: string, row: DocumentRow): Promise<void>;
+  /** Remove a document row. Highlights and share links cascade with it. */
+  deleteDoc?(id: string): Promise<void>;
   createFolder?(path: string, ownerUid?: string): Promise<void>;
   renameFolder?(oldPath: string, newPath: string, ownerUid?: string): Promise<void>;
   deleteFolder?(path: string): Promise<void>;
+  /** All registered folders — needed to plan a recursive folder delete. */
+  listFolders?(): Promise<{ path: string }[]>;
   /** Remove all highlights for a doc (full-replace cleanup). */
   deleteHighlights?(docId: string): Promise<void>;
   /** Remove specific highlights (targeted-edit consume). */

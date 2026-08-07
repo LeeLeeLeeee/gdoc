@@ -25,6 +25,12 @@ function toFolderSummary(row: FolderRow): FolderSummary {
   };
 }
 
+export type DeleteResponse = {
+  deletedDocs: string[];
+  deletedFolders: string[];
+  warnings: string[];
+};
+
 export function useFolderActions(session: Session | null) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +88,18 @@ export function useFolderActions(session: Session | null) {
 
   const deleteFolder = useCallback(
     async (path: string) => {
-      await invoke<{ warnings: string[] }>('folders', 'DELETE', { path });
+      await invoke<DeleteResponse>('folders', 'DELETE', { path });
     },
+    [invoke],
+  );
+
+  const deleteFolderRecursive = useCallback(
+    async (path: string) => invoke<DeleteResponse>('folders', 'DELETE', { path, recursive: true }),
+    [invoke],
+  );
+
+  const deleteDoc = useCallback(
+    async (docId: string) => invoke<DeleteResponse>(`docs/${encodeURIComponent(docId)}`, 'DELETE', undefined),
     [invoke],
   );
 
@@ -99,5 +115,14 @@ export function useFolderActions(session: Session | null) {
     [invoke],
   );
 
-  return { createFolder, renameFolder, deleteFolder, moveDocToFolder, saving, error };
+  return {
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    deleteFolderRecursive,
+    deleteDoc,
+    moveDocToFolder,
+    saving,
+    error,
+  };
 }

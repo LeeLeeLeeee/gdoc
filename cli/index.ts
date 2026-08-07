@@ -15,6 +15,7 @@ import { DOC_TYPES, type GdocMeta } from '../shared/schema';
 import type { Bucket } from './ports';
 import { moveFilePath, renameFilePath, renameFolderDocs, updateRemoteDoc } from './manage';
 import { editDoc, getDocHtml, revertDoc } from './edit';
+import { assertFolderEmpty, deleteDoc, deleteFolderRecursive, type DeleteResult } from './delete';
 import { runInstructionEdit, defaultRunner } from './instruction';
 import type { GdocMetaPatch } from '../shared/metaPatch';
 
@@ -214,7 +215,13 @@ async function runFolder(args: string[]) {
     return;
   }
   if (subcommand === 'rmdir') {
-    if (!first) throw new Error('사용법: gdoc folder rmdir <folder-path> [--dry-run]');
+    if (!first) throw new Error('사용법: gdoc folder rmdir <folder-path> [--recursive --confirm] [--dry-run]');
+    if (args.includes('--recursive')) {
+      const out = await deleteFolderRecursive(first, ports, { confirm: args.includes('--confirm'), dryRun });
+      reportDelete(out);
+      return;
+    }
+    await assertFolderEmpty(first, ports);
     if (dryRun) {
       console.log(`[dry-run] folder delete: ${first}`);
       return;
@@ -225,6 +232,27 @@ async function runFolder(args: string[]) {
     return;
   }
   throw new Error('사용법: gdoc folder <mkdir|rename|rmdir> ...');
+}
+
+function reportDelete(out: DeleteResult) {
+  const prefix = out.dryRun ? '[dry-run] ' : '';
+  for (const id of out.deletedDocs) console.log(`${prefix}✓ 문서 삭제: ${id}`);
+  for (const path of out.deletedFolders) console.log(`${prefix}✓ 폴더 삭제: ${path}`);
+  for (const warning of out.warnings) console.error(`  ! ${warning}`);
+  console.log(`${prefix}문서 ${out.deletedDocs.length}개 · 폴더 ${out.deletedFolders.length}개`);
+  if (!out.dryRun && out.deletedDocs.length) {
+    console.log('  지식 그래프를 최신화하려면: gdoc analyze --rebuild');
+  }
+}
+
+async function runRemove(args: string[]) {
+  const [ref] = positionalArgs(args);
+  if (!ref) throw new Error('사용법: gdoc rm <문서 id|path> --confirm [--dry-run]');
+  const out = await deleteDoc(ref, createPortsFromEnv(), {
+    confirm: args.includes('--confirm'),
+    dryRun: args.includes('--dry-run'),
+  });
+  reportDelete(out);
 }
 
 async function runGet(args: string[]) {
@@ -297,9 +325,11 @@ const USAGE = `gdoc — 개인 HTML 문서 관리 CLI
   gdoc move-file <문서 id|path> <폴더> [--dry-run]     문서를 폴더로 이동
   gdoc rename <문서 id|path> <새 파일명> [--dry-run]   문서 이름 변경
   gdoc meta <문서 id|path> [meta flags] [--dry-run]    title/tags/category/type/visibility 수정
+  gdoc rm <문서 id|path> --confirm [--dry-run]         문서 삭제(하이라이트·공유링크 포함)
   gdoc folder mkdir <path> [--dry-run]                 빈 폴더 생성
   gdoc folder rename <path> <새 이름> [--dry-run]      폴더와 하위 문서 이동
   gdoc folder rmdir <path> [--dry-run]                 빈 폴더 삭제
+  gdoc folder rmdir <path> --recursive --confirm       폴더와 하위 문서를 통째로 삭제
   gdoc analyze [--rebuild]                            지식 그래프 + 검색 인덱스 생성
   gdoc doctor                                         환경 설정 점검
   gdoc help                                           이 도움말
@@ -310,6 +340,8 @@ const USAGE = `gdoc — 개인 HTML 문서 관리 CLI
   --file        (edit) 교체할 새 HTML 파일 경로
   --if-match    (edit) 기반 content_hash. 원격이 바뀌었으면 거부(낙관적 동시성)
   --confirm     (edit) 위험 전환(문서 이동·공개범위 변경) 적용 승인
+                (rm / folder rmdir --recursive) 삭제 승인 — 없으면 실행되지 않음
+  --recursive   (folder rmdir) 하위 문서·폴더까지 함께 삭제
   --title       (meta) 제목
   --tags        (meta) 쉼표 구분 태그
   --category    (meta) 카테고리
@@ -326,7 +358,8 @@ const ALLOWED_FLAGS: Record<string, string[]> = {
   'move-file': ['--dry-run'],
   rename: ['--dry-run'],
   meta: ['--title', '--tags', '--category', '--type', '--visibility', '--dry-run'],
-  folder: ['--dry-run'],
+  rm: ['--confirm', '--dry-run'],
+  folder: ['--dry-run', '--recursive', '--confirm'],
   analyze: ['--rebuild'],
   doctor: [],
 };
@@ -348,6 +381,7 @@ async function main() {
     args[0] === 'move-file' ||
     args[0] === 'rename' ||
     args[0] === 'meta' ||
+    args[0] === 'rm' ||
     args[0] === 'folder'
       ? args[0]
       : 'upload';
@@ -387,6 +421,10 @@ async function main() {
   }
   if (command === 'rename') {
     await runRename(args.slice(1));
+    return;
+  }
+  if (command === 'rm') {
+    await runRemove(args.slice(1));
     return;
   }
   if (command === 'meta') {

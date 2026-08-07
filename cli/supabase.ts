@@ -123,6 +123,16 @@ export function createSupabasePorts(
         .eq('id', oldId);
       if (error) throw error;
     },
+    async deleteDoc(id) {
+      // highlights + document_share_links cascade from this row.
+      const { error } = await sb.from('documents').delete().eq('id', id);
+      if (error) throw error;
+    },
+    async listFolders() {
+      const { data, error } = await sb.from('document_folders').select('path');
+      if (error) throw error;
+      return (data ?? []).map((r) => ({ path: r.path as string }));
+    },
     async createFolder(path, folderOwnerUid) {
       const segments = path.split('/').filter(Boolean);
       const { error } = await sb.from('document_folders').insert({
