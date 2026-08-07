@@ -17,11 +17,13 @@ import { DocEditModal } from './DocEditModal';
 import { ShareLinkModal } from './ShareLinkModal';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { TreeRenameDialog } from './TreeRenameDialog';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 import { SharedDocPage } from './SharedDocPage';
 import { formatUpdatedAt } from './dateFormat';
 import { sortDocs, type SortKey, type SortDir } from '../../shared/sortDocs';
 import type { DocSummary } from '../../shared/buildTree';
 import { folderPathOf } from '../../shared/folderRules';
+import { planFolderDelete } from '../../shared/deletePlan';
 import { shareTokenFromPath } from '../../shared/shareLinks';
 import { Logo, Search, Filter, X, Alert, Moon, Sun, Refresh, Check, Pencil, LinkIcon, Copy } from './icons';
 import { useHighlights, useAllHighlights, type Highlight } from './useHighlights';
@@ -85,6 +87,9 @@ export default function App() {
   const [createFolderParent, setCreateFolderParent] = useState<string | null | undefined>(undefined);
   const [movingDoc, setMovingDoc] = useState<{ id: string; targetFolderPath: string } | null>(null);
   const [renameTarget, setRenameTarget] = useState<
+    { kind: 'file'; doc: DocSummary } | { kind: 'folder'; path: string; name: string } | null
+  >(null);
+  const [deleteTarget, setDeleteTarget] = useState<
     { kind: 'file'; doc: DocSummary } | { kind: 'folder'; path: string; name: string } | null
   >(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -423,8 +428,10 @@ export default function App() {
                   await folderActions.deleteFolder(path);
                   refetchFolders();
                 }}
+                onDeleteFolderRecursive={(path, name) => setDeleteTarget({ kind: 'folder', path, name })}
                 onRenameFile={(doc) => setRenameTarget({ kind: 'file', doc })}
                 onEditFile={(doc) => setEditingDoc(doc)}
+                onDeleteFile={(doc) => setDeleteTarget({ kind: 'file', doc })}
                 onMoveDocToFolder={async (doc, targetFolderPath) => {
                   if (folderPathOf(doc.path) === targetFolderPath) return;
                   setMovingDoc({ id: doc.id, targetFolderPath });
@@ -656,6 +663,48 @@ export default function App() {
               refetchFolders();
             }
             setRenameTarget(null);
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          title={deleteTarget.kind === 'file' ? '문서 삭제' : '폴더 통째로 삭제'}
+          targetName={
+            deleteTarget.kind === 'file'
+              ? deleteTarget.doc.path.split('/').at(-1) ?? deleteTarget.doc.path
+              : deleteTarget.name
+          }
+          counts={
+            deleteTarget.kind === 'folder'
+              ? planFolderDelete(deleteTarget.path, docs, folders).counts
+              : undefined
+          }
+          saving={folderActions.saving}
+          onClose={() => setDeleteTarget(null)}
+          onDelete={async () => {
+            try {
+              const result =
+                deleteTarget.kind === 'file'
+                  ? await folderActions.deleteDoc(deleteTarget.doc.id)
+                  : await folderActions.deleteFolderRecursive(deleteTarget.path);
+
+              const removed = new Set(result.deletedDocs);
+              if (selected && removed.has(selected.id)) setSelected(null);
+              refetchDocs();
+              refetchFolders();
+
+              for (const warning of result.warnings) toast(warning, 'error');
+              toast(
+                deleteTarget.kind === 'file'
+                  ? '삭제됨'
+                  : `삭제됨 — 문서 ${result.deletedDocs.length}개 · 폴더 ${result.deletedFolders.length}개`,
+              );
+            } catch {
+              toast('삭제 실패', 'error');
+            } finally {
+              setDeleteTarget(null);
+            }
           }}
         />
       )}

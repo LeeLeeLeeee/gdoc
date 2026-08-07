@@ -22,8 +22,10 @@ type Props = {
   onCreateFolder?: (parentPath: string | null) => void;
   onRenameFolder?: (path: string, currentName: string) => void;
   onDeleteFolder?: (path: string) => void;
+  onDeleteFolderRecursive?: (path: string, name: string) => void;
   onRenameFile?: (doc: DocSummary) => void;
   onEditFile?: (doc: DocSummary) => void;
+  onDeleteFile?: (doc: DocSummary) => void;
   onMoveDocToFolder?: (doc: DocSummary, folderPath: string) => void;
 };
 
@@ -39,8 +41,10 @@ export function TreeView({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  onDeleteFolderRecursive,
   onRenameFile,
   onEditFile,
+  onDeleteFile,
   onMoveDocToFolder,
 }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; target: MenuTarget } | null>(null);
@@ -61,10 +65,14 @@ export function TreeView({
       onRenameFolder?.(target.path, target.name);
     } else if (target.kind === 'folder' && action === 'delete-folder') {
       onDeleteFolder?.(target.path);
+    } else if (target.kind === 'folder' && action === 'delete-folder-recursive') {
+      onDeleteFolderRecursive?.(target.path, target.name);
     } else if (target.kind === 'file' && action === 'rename-file') {
       onRenameFile?.(target.doc);
     } else if (target.kind === 'file' && action === 'edit-file') {
       onEditFile?.(target.doc);
+    } else if (target.kind === 'file' && action === 'delete-file') {
+      onDeleteFile?.(target.doc);
     }
   };
 

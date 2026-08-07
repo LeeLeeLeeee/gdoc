@@ -21,8 +21,10 @@ export function FileTree({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  onDeleteFolderRecursive,
   onRenameFile,
   onEditFile,
+  onDeleteFile,
   onMoveDocToFolder,
 }: {
   docs: DocSummary[];
@@ -37,8 +39,10 @@ export function FileTree({
   onCreateFolder?: (parentPath: string | null) => void;
   onRenameFolder?: (path: string, currentName: string) => void;
   onDeleteFolder?: (path: string) => void;
+  onDeleteFolderRecursive?: (path: string, name: string) => void;
   onRenameFile?: (doc: DocSummary) => void;
   onEditFile?: (doc: DocSummary) => void;
+  onDeleteFile?: (doc: DocSummary) => void;
   onMoveDocToFolder?: (doc: DocSummary, folderPath: string) => void;
 }) {
   const tree = useMemo(() => flattenTree(buildTree(docs, { sort: false, folders })), [docs, folders]);
@@ -55,8 +59,10 @@ export function FileTree({
       onCreateFolder={onCreateFolder}
       onRenameFolder={onRenameFolder}
       onDeleteFolder={onDeleteFolder}
+      onDeleteFolderRecursive={onDeleteFolderRecursive}
       onRenameFile={onRenameFile}
       onEditFile={onEditFile}
+      onDeleteFile={onDeleteFile}
       onMoveDocToFolder={onMoveDocToFolder}
     />
   );

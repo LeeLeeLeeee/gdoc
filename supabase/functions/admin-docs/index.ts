@@ -524,9 +524,63 @@ async function createFolder(
   return json(200, { folder: data as FolderRow, warnings: [] });
 }
 
+/**
+ * Remove a document row, then its storage object.
+ *
+ * Row first: `highlights` and `document_share_links` cascade with it, and a
+ * storage failure only leaves an orphaned object. The reverse order would leave
+ * a row pointing at a missing object, which breaks the document when opened.
+ */
+async function removeDocumentRow(service: ServiceClient, row: DocumentRow): Promise<string[]> {
+  const { error } = await service.from('documents').delete().eq('id', row.id);
+  if (error) apiError(500, 'db_update_failed', error.message);
+
+  const { error: storageError } = await service.storage.from(row.bucket).remove([row.storage_key]);
+  if (storageError) {
+    return [`storage 객체 삭제 실패: ${row.bucket}/${row.storage_key} (${storageError.message})`];
+  }
+  return [];
+}
+
+async function deleteDocument(service: ServiceClient, id: string): Promise<Response> {
+  const row = await getDocument(service, id);
+  const warnings = await removeDocumentRow(service, row);
+  return json(200, { deletedDocs: [row.id], deletedFolders: [], warnings });
+}
+
+async function deleteFolderRecursive(service: ServiceClient, path: string): Promise<Response> {
+  await assertFolderExists(service, path);
+
+  const docs = await documentsUnderFolder(service, path);
+  const warnings: string[] = [];
+  const deletedDocs: string[] = [];
+  for (const row of docs) {
+    warnings.push(...(await removeDocumentRow(service, row)));
+    deletedDocs.push(row.id);
+  }
+
+  // Deepest first, so a folder is never removed before its children.
+  const folderPaths = [...new Set([...(await explicitFoldersUnder(service, path)).map((f) => f.path), path])].sort(
+    (a, b) => b.split('/').filter(Boolean).length - a.split('/').filter(Boolean).length,
+  );
+
+  const deletedFolders: string[] = [];
+  for (const folderPath of folderPaths) {
+    const { error } = await service.from('document_folders').delete().eq('path', folderPath);
+    if (error) {
+      warnings.push(`폴더 삭제 실패: ${folderPath} (${error.message})`);
+      continue;
+    }
+    deletedFolders.push(folderPath);
+  }
+
+  return json(200, { deletedDocs, deletedFolders, warnings });
+}
+
 async function deleteFolder(service: ServiceClient, bodyInput: unknown): Promise<Response> {
   if (!isRecord(bodyInput)) apiError(400, 'invalid_payload', 'Request body must be an object');
   const path = normalizeFolderPath(assertString(bodyInput.path, 'invalid_payload'));
+  if (bodyInput.recursive === true) return await deleteFolderRecursive(service, path);
 
   const { data: folder, error: folderError } = await service
     .from('document_folders')
@@ -554,7 +608,7 @@ async function deleteFolder(service: ServiceClient, bodyInput: unknown): Promise
 
   const { error } = await service.from('document_folders').delete().eq('path', path);
   if (error) apiError(500, 'db_update_failed', error.message);
-  return json(200, { warnings: [] });
+  return json(200, { deletedDocs: [], deletedFolders: [path], warnings: [] });
 }
 
 async function documentsUnderFolder(service: ServiceClient, oldPath: string): Promise<DocumentRow[]> {
@@ -766,6 +820,12 @@ Deno.serve(async (req) => {
     if (req.method === 'PATCH' && path.startsWith('docs/') && path.endsWith('/move')) {
       const id = decodeURIComponent(path.slice('docs/'.length, -'/move'.length));
       return await moveDoc(service, id, await readJson(req));
+    }
+
+    // DELETE has no other docs/* subroutes, so everything after `docs/` is the id.
+    if (req.method === 'DELETE' && path.startsWith('docs/')) {
+      const id = decodeURIComponent(path.slice('docs/'.length));
+      return await deleteDocument(service, id);
     }
 
     if (req.method === 'POST' && path === 'folders') {
