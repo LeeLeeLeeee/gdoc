@@ -66,9 +66,36 @@ Supabase Edge Function only.
   via `.gitignore`, but double-check: `git status` should not list `gdoc/.env`.
 - Only `.env.example` (placeholders) should be committed.
 
+### Pushing when `gh` has more than one account
+
+If your active `gh` account is not the repo owner, `git push` fails with **403**
+(`Permission to <owner>/gdoc.git denied`). The `gh` credential helper only ever
+returns the **active** account — setting `credential.https://github.com.username`
+does not work, because the helper ignores the requested username and git then
+falls through to a password prompt.
+
+Set up a repo-local alias that switches, pushes, and switches back. It lives in
+`.git/config`, so it is **not committed** and must be recreated after a fresh
+clone. Replace the two usernames with the owner account and your usual account:
+
+```bash
+git config --local alias.pushowner \
+  '!f() { gh auth switch -u OWNER >/dev/null 2>&1; git push "$@"; rc=$?; gh auth switch -u USUAL >/dev/null 2>&1; return $rc; }; f'
+```
+
+Then push with `git pushowner origin main`. The restore runs even when the push
+fails, and the original exit code is preserved. Verify with:
+
+```bash
+git pushowner --dry-run origin main   # active account must be unchanged afterwards
+gh auth status                        # confirm the expected account is active again
+```
+
+Both accounts must already be logged in (`gh auth login` once per account).
+
 ## After deploy
 
 - Anonymous visitors see public docs. Sign in (your owner account) to see private docs.
 - Only the user whose id matches `OWNER_UID`/`VITE_OWNER_UID` can see edit controls and call the admin Edge Function. Private reads are enforced by Postgres RLS and Storage policies, not by the UI.
-- Sign in as owner to edit metadata/visibility, create and rename folders, delete empty folders, and drag files into folders.
+- Sign in as owner to edit metadata/visibility, create and rename folders, drag files into folders, and delete documents or whole folders (the confirm dialog requires typing the target name).
 - Uploading new HTML documents is still the local CLI (`bun run gdoc upload <dir>`).
